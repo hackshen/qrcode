@@ -3,16 +3,19 @@ const env = process.env.NODE_ENV;
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const copyWpackPlugin = require('copy-webpack-plugin')
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const {CleanWebpackPlugin} = require('clean-webpack-plugin');
 
-const cleanPlugin =  new CleanWebpackPlugin();
+const cleanPlugin = env === 'dev' ? () => {
+} : new CleanWebpackPlugin();
+
 const copyPlugin = new copyWpackPlugin(
     //接受一个数组 可以多个文件
     [{
         from: './src/dist',
         to: './'
     }]
-)
+);
+
 const htmlPlugin = new HtmlWebpackPlugin({
     filename: 'popup.html',
     template: './src/popup.html',
@@ -28,7 +31,7 @@ const cssPlugin = new MiniCssExtractPlugin({
 });
 
 module.exports = {
-    mode:  env === 'dev' ? 'development' : 'production',
+    mode: env === 'dev' ? 'development' : 'production',
     entry: {
         popup: './src/popup.js'
     },
@@ -85,5 +88,5 @@ module.exports = {
             }
         ]
     },
-    plugins: [htmlPlugin, cssPlugin, copyPlugin, env === 'dev' ? '' : cleanPlugin]
+    plugins: [htmlPlugin, cssPlugin, copyPlugin, cleanPlugin]
 }
