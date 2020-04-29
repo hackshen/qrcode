@@ -1,0 +1,22 @@
+.qrtext {
+    text-align: center;
+}
+#urlCode {
+
+}
+.message {
+    cursor: pointer;
+    text-align: center;
+}
+div {
+    margin-bottom: 5px;
+}
+.changeInput,.add-param,.add-params {
+    text-align: center;
+}
+a {
+    color: black;
+}
+
+
+/*# sourceMappingURL=index.5e03d773.css.map*/

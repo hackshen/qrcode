@@ -8,11 +8,10 @@
         "default_icon": "favicon.png",
         "default_popup": "popup.html"
     },
-    "content_scripts": [
-        {
-            "matches": ["*://*/*"],
-            "js": ["jquery-2.1.4.min.js"]
-        }
-    ],
+    // "content_scripts": [
+    //     {
+    //         "matches": ["*://*/*"]
+    //     }
+    // ],
     "permissions" : ["tabs", "activeTab"] //向浏览器申请的权限
 }
