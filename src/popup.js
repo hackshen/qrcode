@@ -1,64 +1,56 @@
 import React, {useState, useEffect} from 'react'
 import ReactDOM from 'react-dom';
 import axios from 'axios';
+import QRCode from 'qrcode.react';
 import "babel-polyfill";
 import './popup.css';
 
 export default function App(props) {
-    const [imgUrl, setImgUrl] = useState('');
+    const [qrUrl, setQrurl] = useState('');
     const [message, setMessage] = useState('');
-    const [url, setUrl] = useState('');
-
-    const getMsg = () => {
-        return axios('http://api.hackshen.com:3000/message');
-    }
-
-    const getQr = (url) => {
-        return `http://api.hackshen.com:3000/qrcode?data=${url}`
-    }
 
     const messag = async () => {
-        const msg = await getMsg();
+        const msg = await axios('http://api.hackshen.com:3000/message');
         setMessage(msg.data[0].title);
     }
 
     const getValue = (e) => {
         const value = e.target.value;
-        setUrl(value);
-        setImgUrl(getQr(value));
+        setQrurl(value);
     }
+
     useEffect(() => {
         chrome.tabs.getSelected(null, (tab) => {
-            window.tab = tab
-            window.tabUrl = tab.url;
-            setImgUrl(getQr(tab.url));
-            setUrl(tab.url);
+            setQrurl(tab.url)
         });
         messag();
-        // const msg = getMsg();
-        // msg.then((res)=>{
-        //     setMessage(res.data[0].title);
-        // })
     }, []);
 
     return (
-        <div>
-            <img id="qrcode" src={imgUrl} alt="" style={{width: '240px'}}/>
-            <div id="qrcode1"></div>
+        <React.Fragment>
+            <QRCode
+                value={qrUrl}
+                size={256}
+            />
             <div className="qrtext">Current qr code</div>
-
             <div className="changeInput">
-                <textarea id="urlVal" style={{maxWidth: '90%'}} type="text" value={url} onChange={(e) => {
-                    getValue(e)
-                }}/>
+                <textarea
+                    className="url-text"
+                    type="text"
+                    value={qrUrl}
+                    onChange={(e) => {
+                        getValue(e)
+                    }}/>
             </div>
-            <div className="message" onClick={() => {
-                messag()
-            }}>{message}</div>
-            <div style={{textAlign: "center"}}>
+            <div
+                className="message"
+                onClick={() => {
+                    messag()
+                }}>{message}</div>
+            <div className="author">
                 <a href="http://hackshen.com" target="_blank">Author: Hshen</a>
             </div>
-        </div>
+        </React.Fragment>
     )
 }
 
