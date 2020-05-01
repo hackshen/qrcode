@@ -5,7 +5,7 @@ import QRCode from 'qrcode.react';
 import "babel-polyfill";
 import './popup.css';
 
-export default function App(props) {
+function App(props) {
     const [qrUrl, setQrurl] = useState('');
     const [message, setMessage] = useState('');
 
