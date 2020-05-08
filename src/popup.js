@@ -39,6 +39,7 @@ function App(props) {
                 <textarea
                     className="url-text"
                     type="text"
+                    value={qrUrl}
                     ref={ref}
                     onChange={getValue}/>
             </div>
