@@ -5,25 +5,26 @@ import QRCode from 'qrcode.react';
 import "babel-polyfill";
 import './popup.css';
 
-function App(props) {
+function App() {
     const [qrUrl, setQrurl] = useState('');
     const [message, setMessage] = useState('');
     const ref = useRef();
 
-    const getMessage = useCallback(async () => {
+    const getMessage = async () => {
         const msg = await axios('http://api.hackshen.com:3000/message');
         setMessage(msg.data[0].title);
-    }, [message])
+    }
 
-    const getValue = useCallback((e) => {
+    const getValue = (e) => {
         const value = e.target.value;
         ref.current.value = value;
         setQrurl(value);
-    }, [qrUrl])
+    }
 
     useEffect(() => {
         chrome.tabs.getSelected(null, (tab) => {
             setQrurl(tab.url)
+            ref.current.value = tab.url;
         });
         getMessage();
     }, []);
@@ -39,7 +40,6 @@ function App(props) {
                 <textarea
                     className="url-text"
                     type="text"
-                    value={qrUrl}
                     ref={ref}
                     onChange={getValue}/>
             </div>
