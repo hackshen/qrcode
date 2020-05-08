@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react'
+import React, {useState, useEffect, useRef, useCallback} from 'react'
 import ReactDOM from 'react-dom';
 import axios from 'axios';
 import QRCode from 'qrcode.react';
@@ -8,22 +8,24 @@ import './popup.css';
 function App(props) {
     const [qrUrl, setQrurl] = useState('');
     const [message, setMessage] = useState('');
+    const ref = useRef();
 
-    const messag = async () => {
+    const getMessage = useCallback(async () => {
         const msg = await axios('http://api.hackshen.com:3000/message');
         setMessage(msg.data[0].title);
-    }
+    }, [message])
 
-    const getValue = (e) => {
+    const getValue = useCallback((e) => {
         const value = e.target.value;
+        ref.current.value = value;
         setQrurl(value);
-    }
+    }, [qrUrl])
 
     useEffect(() => {
         chrome.tabs.getSelected(null, (tab) => {
             setQrurl(tab.url)
         });
-        messag();
+        getMessage();
     }, []);
 
     return (
@@ -37,16 +39,12 @@ function App(props) {
                 <textarea
                     className="url-text"
                     type="text"
-                    value={qrUrl}
-                    onChange={(e) => {
-                        getValue(e)
-                    }}/>
+                    ref={ref}
+                    onChange={getValue}/>
             </div>
             <div
                 className="message"
-                onClick={() => {
-                    messag()
-                }}>{message}</div>
+                onClick={getMessage}>{message}</div>
             <div className="author">
                 <a href="http://hackshen.com" target="_blank">Author: Hshen</a>
             </div>
