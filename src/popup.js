@@ -11,7 +11,7 @@ function App() {
     const ref = useRef();
 
     const getMessage = async () => {
-        const msg = await axios('http://api.hackshen.com:3000/message');
+        const msg = await axios('http://api.hackshen.com/message');
         setMessage(msg.data[0].title);
     }
 
