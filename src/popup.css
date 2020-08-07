@@ -19,8 +19,21 @@
 
 a {
     color: black;
+    display: inline-block;
 }
 
 div {
     margin-bottom: 5px;
+}
+
+.shortcut {
+    margin: 0;
+    font-size: 20px;
+}
+
+.tabLink a {
+    padding: 4px 2px;
+    background: skyblue;
+    border-radius: 4px;
+    margin: 2px;
 }
