@@ -2,8 +2,27 @@ import React, {useState, useEffect, useRef, useCallback} from 'react'
 import ReactDOM from 'react-dom';
 import axios from 'axios';
 import QRCode from 'qrcode.react';
-import "babel-polyfill";
+import 'babel-polyfill';
 import './popup.css';
+
+const HSHEN_CONF = {
+    author: 'Author: Hshen',
+    api: 'http://api.hackshen.com/message',
+    qrText: 'Current qr code',
+}
+
+const newTab = [
+    {
+        name: 'Hshen@Blog',
+        link: 'https://hackshen.com',
+    }, {
+        name: 'Hshen@Git',
+        link: 'https://git.hackshen.com',
+    }, {
+        name: 'Hshen@Api',
+        link: 'https://api.hackshen.com',
+    },
+]
 
 function App() {
     const [qrUrl, setQrurl] = useState('');
@@ -11,7 +30,7 @@ function App() {
     const ref = useRef();
 
     const getMessage = async () => {
-        const msg = await axios('http://api.hackshen.com/message');
+        const msg = await axios(HSHEN_CONF.api);
         setMessage(msg.data[0].title);
     }
 
@@ -35,7 +54,7 @@ function App() {
                 value={qrUrl}
                 size={256}
             />
-            <div className="qrtext">Current qr code</div>
+            <div className="qrtext">{HSHEN_CONF.qrText}</div>
             <div className="changeInput">
                 <textarea
                     className="url-text"
@@ -46,8 +65,17 @@ function App() {
             <div
                 className="message"
                 onClick={getMessage}>{message}</div>
+            <p className={'shortcut'}>shortcut</p>
+            <div className={'tabLink'}>
+                {newTab.map(item => {
+                    return <a style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`}}
+                              target="_blank" href={item.link}>{item.name}</a>
+                })}
+            </div>
+
+            <hr/>
             <div className="author">
-                <a href="http://hackshen.com" target="_blank">Author: Hshen</a>
+                <a href="http://hackshen.com" target="_blank">{HSHEN_CONF.author}</a>
             </div>
         </React.Fragment>
     )
