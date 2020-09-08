@@ -19,6 +19,7 @@ const copyPlugin = new copyWpackPlugin(
 const htmlPlugin = new HtmlWebpackPlugin({
     filename: 'popup.html',
     template: './src/popup.html',
+    chunks: ['popup']
     // minify: {
     // removeAttributeQuotes:true,
     // collapseWhitespace:true,
