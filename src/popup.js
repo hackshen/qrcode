@@ -24,6 +24,7 @@ const newTab = [
     },
 ]
 
+
 function App() {
     const [qrUrl, setQrurl] = useState('');
     const [message, setMessage] = useState('');
@@ -38,6 +39,15 @@ function App() {
         const value = e.target.value;
         ref.current.value = value;
         setQrurl(value);
+    }
+
+    const scriptInject = () => {
+        chrome.tabs.getSelected(null, (tab) => {//获取当前tab
+            //向tab发送请求
+            chrome.tabs.sendMessage(tab.id, {action: "inject"}, (response) => {
+                console.log(response.msg);
+            });
+        });
     }
 
     useEffect(() => {
@@ -67,6 +77,7 @@ function App() {
                 onClick={getMessage}>{message}</div>
             <p className={'shortcut'}>shortcut</p>
             <div className={'tabLink'}>
+                <a style={{background: 'skyblue'}} onClick={scriptInject}>inject</a>
                 {newTab.map(item => {
                     return <a style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`}}
                               target="_blank" href={item.link}>{item.name}</a>
