@@ -11,7 +11,45 @@ const HSHEN_CONF = {
     qrText: 'Current qr code',
 }
 
-const newTab = [
+const openDownload = () => {
+    chrome.runtime.getPlatformInfo(function (info) {
+        chrome.downloads.showDefaultFolder();
+    });
+}
+
+const scriptInject = () => {
+    chrome.tabs.getSelected(null, (tab) => {//获取当前tab
+        //向tab发送请求
+        chrome.tabs.sendMessage(tab.id, {action: "inject"}, (response) => {
+            console.log(response.msg);
+        });
+    });
+}
+
+const openChromeTab = (url) => {
+    return () => {
+        chrome.tabs.create({
+            'url': url
+        });
+    }
+}
+
+const tabList = [
+    {
+        name: 'DNS',
+        fn: openChromeTab('chrome://net-internals/#sockets'),
+        style: {background: 'skyblue'},
+    },
+    {
+        name: 'Download',
+        fn: openDownload,
+        style: {background: 'skyblue'},
+    },
+    {
+        name: 'Inject',
+        fn: scriptInject,
+        style: {background: 'skyblue'},
+    },
     {
         name: 'Hshen@Blog',
         link: 'https://hackshen.com',
@@ -41,15 +79,6 @@ function App() {
         setQrurl(value);
     }
 
-    const scriptInject = () => {
-        chrome.tabs.getSelected(null, (tab) => {//获取当前tab
-            //向tab发送请求
-            chrome.tabs.sendMessage(tab.id, {action: "inject"}, (response) => {
-                console.log(response.msg);
-            });
-        });
-    }
-
     useEffect(() => {
         chrome.tabs.getSelected(null, (tab) => {
             setQrurl(tab.url)
@@ -77,10 +106,13 @@ function App() {
                 onClick={getMessage}>{message}</div>
             <p className={'shortcut'}>shortcut</p>
             <div className={'tabLink'}>
-                <a style={{background: 'skyblue'}} onClick={scriptInject}>inject</a>
-                {newTab.map(item => {
-                    return <a style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`}}
-                              target="_blank" href={item.link}>{item.name}</a>
+                {tabList.map(item => {
+                    return <a
+                        style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
+                        target="_blank"
+                        href={item.link}
+                        onClick={item.fn}
+                    >{item.name}</a>
                 })}
             </div>
 
