@@ -8,10 +8,34 @@
         "default_icon": "favicon.png",
         "default_popup": "popup.html"
     },
-    // "content_scripts": [
-    //     {
-    //         "matches": ["*://*/*"]
-    //     }
-    // ],
-    "permissions" : ["tabs", "activeTab"] //向浏览器申请的权限
+    "content_scripts": [
+        {
+            "matches": [
+              "\u003Call_urls>"
+            ],
+            "js": [
+                "inject.js"
+            ]
+        }
+    ],
+    "background": {
+        "scripts": [
+            "background.js"
+        ]
+    },
+    "commands": {
+        "_execute_browser_action": {
+            "suggested_key": {
+                "default": "Alt+Shift+S",
+                "mac": "Command+Shift+S"
+            }
+        }
+    },
+    "permissions": [
+        "tabs",
+        "activeTab",
+        "contextMenus",
+        "declarativeContent",
+        "downloads"
+    ]
 }
