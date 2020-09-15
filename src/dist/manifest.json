@@ -11,7 +11,7 @@
     "content_scripts": [
         {
             "matches": [
-              "\u003Call_urls>"
+                "*://*/*"
             ],
             "js": [
                 "inject.js"
@@ -36,6 +36,11 @@
         "activeTab",
         "contextMenus",
         "declarativeContent",
-        "downloads"
+        "downloads",
+        "clipboardRead",
+        "clipboardWrite",
+        "chrome://net-internals/#events",
+        "chrome://extensions/"
     ]
+    //向浏览器申请的权限
 }
