@@ -26,18 +26,20 @@ const scriptInject = () => {
     });
 }
 
-const openChromeTab = (url) => {
-    return () => {
-        chrome.tabs.create({
-            'url': url
-        });
-    }
+const clearDnsCache = () => {
+    chrome.tabs.create({url: 'chrome://net-internals', active: false}, tab => {
+        chrome.tabs.executeScript(tab.id, {file: 'clear.js'}, () => {
+            chrome.tabs.remove(tab.id, () => {
+                chrome.tabs.sendMessage(window.tabId, {action: 'clear'})
+            })
+        })
+    })
 }
 
 const tabList = [
     {
         name: 'DNS',
-        fn: openChromeTab('chrome://net-internals/#sockets'),
+        fn: clearDnsCache,
         style: {background: 'skyblue'},
     },
     {
@@ -81,6 +83,7 @@ function App() {
 
     useEffect(() => {
         chrome.tabs.getSelected(null, (tab) => {
+            window.tabId = tab.id;
             setQrurl(tab.url)
             ref.current.value = tab.url;
         });
@@ -106,8 +109,9 @@ function App() {
                 onClick={getMessage}>{message}</div>
             <p className={'shortcut'}>shortcut</p>
             <div className={'tabLink'}>
-                {tabList.map(item => {
+                {tabList.map((item, index) => {
                     return <a
+                        key={index}
                         style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
                         target="_blank"
                         href={item.link}
