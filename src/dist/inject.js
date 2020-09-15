@@ -20,5 +20,8 @@ chrome.extension.onMessage.addListener((request, sender, sendResponse) => {
             document.head.appendChild(script);
             sendResponse({msg: 'success!'});
         }
+        if (request.action === 'clear') {
+            alert('DNS缓存清除成功!');
+        }
     }
 );
