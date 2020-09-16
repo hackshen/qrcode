@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback} from 'react'
+import React, {useState, useEffect, useRef, useCallback, useMemo} from 'react'
 import ReactDOM from 'react-dom';
 import axios from 'axios';
 import QRCode from 'qrcode.react';
@@ -20,7 +20,7 @@ const openDownload = () => {
 const scriptInject = () => {
     chrome.tabs.getSelected(null, (tab) => {//获取当前tab
         //向tab发送请求
-        chrome.tabs.sendMessage(tab.id, {action: "inject"}, (response) => {
+        chrome.tabs.sendMessage(tab.id, {action: 'inject'}, (response) => {
             console.log(response.msg);
         });
     });
@@ -36,7 +36,7 @@ const clearDnsCache = () => {
     })
 }
 
-const tabList = [
+const tagData = [
     {
         name: 'DNS',
         fn: clearDnsCache,
@@ -90,6 +90,18 @@ function App() {
         getMessage();
     }, []);
 
+    const tagList = useMemo(() => {
+        return tagData.map((item, index) => {
+            return <a
+                key={index}
+                style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
+                target="_blank"
+                href={item.link}
+                onClick={item.fn}
+            >{item.name}</a>
+        })
+    }, [])
+
     return (
         <React.Fragment>
             <QRCode
@@ -107,19 +119,7 @@ function App() {
             <div
                 className="message"
                 onClick={getMessage}>{message}</div>
-            <p className={'shortcut'}>shortcut</p>
-            <div className={'tabLink'}>
-                {tabList.map((item, index) => {
-                    return <a
-                        key={index}
-                        style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
-                        target="_blank"
-                        href={item.link}
-                        onClick={item.fn}
-                    >{item.name}</a>
-                })}
-            </div>
-
+            <div className={'tabLink'}> {tagList} </div>
             <hr/>
             <div className="author">
                 <a href="http://hackshen.com" target="_blank">{HSHEN_CONF.author}</a>
