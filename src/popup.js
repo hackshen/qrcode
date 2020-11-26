@@ -38,6 +38,11 @@ const clearDnsCache = () => {
 
 const tagData = [
     {
+        name: 'background',
+        style: {background: 'skyblue'},
+        link: './background.html'
+    },
+    {
         name: 'DNS',
         fn: clearDnsCache,
         style: {background: 'skyblue'},
@@ -68,6 +73,17 @@ const tagData = [
 function App() {
     const [qrUrl, setQrurl] = useState('');
     const [message, setMessage] = useState('');
+    const [tagList, setTagList] = useState(() => {
+        return tagData.map((item, index) => {
+            return <a
+                key={index}
+                style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
+                target="_blank"
+                href={item.link}
+                onClick={item.fn}
+            >{item.name}</a>
+        })
+    });
     const ref = useRef();
 
     const getMessage = async () => {
@@ -90,18 +106,6 @@ function App() {
         getMessage();
     }, []);
 
-    const tagList = useMemo(() => {
-        return tagData.map((item, index) => {
-            return <a
-                key={index}
-                style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
-                target="_blank"
-                href={item.link}
-                onClick={item.fn}
-            >{item.name}</a>
-        })
-    }, [])
-
     return (
         <React.Fragment>
             <QRCode
@@ -119,7 +123,7 @@ function App() {
             <div
                 className="message"
                 onClick={getMessage}>{message}</div>
-            <div className={'tabLink'}> {tagList} </div>
+            <div className={'tabLink'}>{tagList}</div>
             <hr/>
             <div className="author">
                 <a href="http://hackshen.com" target="_blank">{HSHEN_CONF.author}</a>
