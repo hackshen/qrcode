@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback, useMemo} from 'react'
+import React, {useState, useEffect, useRef, useReducer, useCallback, useMemo} from 'react'
 import ReactDOM from 'react-dom';
 import axios from 'axios';
 import QRCode from 'qrcode.react';
@@ -71,39 +71,56 @@ const tagData = [
 
 
 function App() {
-    const [qrUrl, setQrurl] = useState('');
-    const [message, setMessage] = useState('');
-    const [tagList, setTagList] = useState(() => {
-        return tagData.map((item, index) => {
-            return <a
-                key={index}
-                style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
-                target="_blank"
-                href={item.link}
-                onClick={item.fn}
-            >{item.name}</a>
-        })
-    });
+    const initialState = {
+        qrUrl: '',
+        message: '',
+        tag: '',
+    };
+    const [state, dispatch] = useReducer(reducer, initialState);
+    const {qrUrl, message, tag} = state;
     const ref = useRef();
+
+    function reducer(state, action) {
+        switch (action.type) {
+            case 'url':
+                return {...state, qrUrl: action.value}
+
+            case 'message':
+                return {...state, message: action.value}
+            case 'tag':
+                const tagList = tagData.map((item, index) => {
+                    return <a
+                        key={index}
+                        style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
+                        target="_blank"
+                        href={item.link}
+                        onClick={item.fn}
+                    >{item.name}</a>
+                })
+                return {...state, tag: tagList}
+        }
+    }
+
 
     const getMessage = async () => {
         const msg = await axios(HSHEN_CONF.api);
-        setMessage(msg.data[0].title);
+        dispatch({type: 'message', value: msg.data[0].title})
     }
 
     const getValue = (e) => {
         const value = e.target.value;
         ref.current.value = value;
-        setQrurl(value);
+        dispatch({type: 'url', value: value})
     }
 
     useEffect(() => {
         chrome.tabs.getSelected(null, (tab) => {
             window.tabId = tab.id;
-            setQrurl(tab.url)
+            dispatch({type: 'url', value: tab.url});
             ref.current.value = tab.url;
         });
         getMessage();
+        dispatch({type: 'tag'});
     }, []);
 
     return (
@@ -123,7 +140,7 @@ function App() {
             <div
                 className="message"
                 onClick={getMessage}>{message}</div>
-            <div className={'tabLink'}>{tagList}</div>
+            <div className={'tabLink'}>{tag}</div>
             <hr/>
             <div className="author">
                 <a href="http://hackshen.com" target="_blank">{HSHEN_CONF.author}</a>
