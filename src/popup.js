@@ -98,13 +98,15 @@ function App() {
                     >{item.name}</a>
                 })
                 return {...state, tag: tagList}
+
+            case 'getMsg':
+                const getMessage = async () => {
+                    const msg = await axios(HSHEN_CONF.api);
+                    dispatch({type: 'message', value: msg.data[0].title})
+                }
+                getMessage();
+                return {...state}
         }
-    }
-
-
-    const getMessage = async () => {
-        const msg = await axios(HSHEN_CONF.api);
-        dispatch({type: 'message', value: msg.data[0].title})
     }
 
     const getValue = (e) => {
@@ -119,8 +121,9 @@ function App() {
             dispatch({type: 'url', value: tab.url});
             ref.current.value = tab.url;
         });
-        getMessage();
+
         dispatch({type: 'tag'});
+        dispatch({type: 'getMsg'});
     }, []);
 
     return (
@@ -139,7 +142,9 @@ function App() {
             </div>
             <div
                 className="message"
-                onClick={getMessage}>{message}</div>
+                onClick={() => {
+                    dispatch({type: 'getMsg'})
+                }}>{message}</div>
             <div className={'tabLink'}>{tag}</div>
             <hr/>
             <div className="author">
