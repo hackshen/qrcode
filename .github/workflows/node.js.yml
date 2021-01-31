@@ -20,16 +20,15 @@ jobs:
       - name: config env
           env:
             CENTOS_KEY: ${{secrets.CENTOS_KEY}}
+          run: |
+            mkdir -p ~/.ssh/
+            echo "$CENTOS_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            echo -e "Host cdn.hackshen.com\nStrictHostKeyChecking no\nHostName cdn.hackshen.com\nUser root\nIdentityFile ~/.ssh/id_rsa\n" >> ~/.ssh/config
       - name: install & build
         run: |
           npm install
           npm run build
-      - name: ssh key
-        run:
-          mkdir -p ~/.ssh/
-          echo "$CENTOS_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo -e "Host cdn.hackshen.com\nStrictHostKeyChecking no\nHostName cdn.hackshen.com\nUser root\nIdentityFile ~/.ssh/id_rsa\n" >> ~/.ssh/config
       - name: push file
-        run:
+        run: |
           rsync -rv --delete -e 'ssh -o stricthostkeychecking=no' build/ root@cdn.hackshen.com:/root/work/
