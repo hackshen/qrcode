@@ -25,3 +25,10 @@ chrome.extension.onMessage.addListener((request, sender, sendResponse) => {
         }
     }
 );
+
+document.body.addEventListener('click', async (e) => {
+        const elText = e.target.innerText;
+        console.log(elText);
+        await navigator.clipboard.writeText(elText);
+    }
+)
