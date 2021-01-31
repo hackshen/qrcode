@@ -31,4 +31,4 @@ jobs:
           npm run build
       - name: push file
         run: |
-          rsync -rv --delete -e 'ssh -o stricthostkeychecking=no' build/ root@cdn.hackshen.com:/root/work/
+          scp -rv 'ssh -o stricthostkeychecking=no' build/ root@cdn.hackshen.com:/root/work/
