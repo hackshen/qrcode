@@ -17,9 +17,9 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: ${{ matrix.node-version }}
-      - name: config env
+      - name: Setup Deploy Private Key
           env:
-            CENTOS_KEY: ${{secrets.CENTOS_KEY}}
+            HEXO_DEPLOY_PRIVATE_KEY: ${{ secrets.CENTOS_KEY }}
           run: |
             mkdir -p ~/.ssh/
             echo "$CENTOS_KEY" > ~/.ssh/id_rsa
