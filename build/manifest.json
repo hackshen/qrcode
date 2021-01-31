@@ -40,7 +40,6 @@
         "clipboardRead",
         "clipboardWrite",
         "chrome://net-internals/#events",
-        "chrome://extensions/"
+        "chrome://extensions"
     ]
-    //向浏览器申请的权限
 }
