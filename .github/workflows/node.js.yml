@@ -31,4 +31,4 @@ jobs:
           npm run build
       - name: push file
         run: |
-          scp -rv 'ssh -o stricthostkeychecking=no' build/ root@cdn.hackshen.com:/root/work/
+          scp -rv build/ root@cdn.hackshen.com:/root/work/
