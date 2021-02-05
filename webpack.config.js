@@ -4,6 +4,8 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const copyWpackPlugin = require('copy-webpack-plugin')
 const {CleanWebpackPlugin} = require('clean-webpack-plugin');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+
 
 const cleanPlugin = env === 'dev' ? () => {
 } : new CleanWebpackPlugin();
@@ -27,14 +29,24 @@ const htmlPlugin = new HtmlWebpackPlugin({
     // hash : true
 });
 
+const htmlBackground = new HtmlWebpackPlugin({
+    filename: 'background.html',
+    template: './src/background.html',
+    chunks: ['background']
+});
+
 const cssPlugin = new MiniCssExtractPlugin({
     filename: env === 'dev' ? 'index.css' : 'index.[hash:8].css'
 });
 
 module.exports = {
     mode: env === 'dev' ? 'development' : 'production',
+    watchOptions: {
+        ignored: /node_modules/
+    },
     entry: {
-        popup: './src/popup.js'
+        popup: './src/popup.js',
+        background: './src/background.js'
     },
 
     output: {
@@ -75,7 +87,10 @@ module.exports = {
             },
             {
                 test: /\.css$/,
-                use: [MiniCssExtractPlugin.loader, 'css-loader']
+                use: ExtractTextPlugin.extract({
+                    fallback: "style-loader",
+                    use: "css-loader"
+                })
             }, {
                 test: /\.(png|jpg|gif)/,
                 use: [{
@@ -89,5 +104,5 @@ module.exports = {
             }
         ]
     },
-    plugins: [htmlPlugin, cssPlugin, copyPlugin, cleanPlugin]
+    plugins: [new ExtractTextPlugin('[name].css'), htmlPlugin, htmlBackground, cssPlugin, copyPlugin, cleanPlugin]
 }
