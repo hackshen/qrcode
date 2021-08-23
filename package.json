@@ -14,11 +14,13 @@
     "react-markdown": "^4.2.2",
     "react-scripts": "3.3.0",
     "react-syntax-highlighter": "^11.0.2",
-    "regenerator": "^0.14.4"
+    "regenerator": "^0.14.4",
+    "systeminformation": "^5.6.4"
   },
   "scripts": {
     "start": "cross-env NODE_ENV=dev webpack --watch",
-    "build": "cross-env NODE_ENV=production webpack"
+    "build": "cross-env NODE_ENV=production webpack",
+    "server": "cross-env NODE_ENV=dev webpack-dev-server"
   },
   "devDependencies": {
     "babel-polyfill": "^6.26.0",
