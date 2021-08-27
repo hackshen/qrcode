@@ -50,8 +50,9 @@ module.exports = {
     },
 
     output: {
-        path: path.join(__dirname, './build'),
-        filename: env === 'dev' ? '[name].js' : '[name].[hash:8].js'
+        path: path.join(__dirname, './assets'),
+        filename: env === 'dev' ? '[name].js' : '[name].js'
+        // filename: env === 'dev' ? '[name].js' : '[name].[hash:8].js'
     },
     // watch: true,
     // watchOptions: {

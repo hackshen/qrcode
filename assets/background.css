@@ -1,0 +1,29 @@
+body {
+    padding: 10px;
+}
+.tr-input {
+    width: 80%;
+}
+.loading {
+    margin: 20px 0;
+    margin-bottom: 20px;
+    padding: 30px 50px;
+    text-align: center;
+    border-radius: 4px;
+}
+
+.item {
+    padding: 5px;
+    border-bottom: 1px solid #ccc;
+}
+
+.viewmore {
+    text-align: center;
+    padding: 5px;
+    background: #ccc;
+    border-radius: 20px;
+    color: black;
+    margin: 10px 50px;
+}
+
+/*# sourceMappingURL=background.css.map*/

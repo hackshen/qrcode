@@ -2,7 +2,7 @@
     "name": "Hshen",
     "version": "1.0.0",
     "manifest_version": 2,
-    "description": "qrCode",
+    "description": "提升开发效率",
     "browser_action": {
         "default_title": "Title",
         "default_icon": "favicon.png",
@@ -15,7 +15,8 @@
             ],
             "js": [
                 "inject.js"
-            ]
+            ],
+            "run_at": "document_start"
         }
     ],
     "background": {
@@ -33,6 +34,7 @@
     },
     "permissions": [
         "tabs",
+        "storage",
         "activeTab",
         "contextMenus",
         "declarativeContent",

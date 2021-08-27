@@ -7,8 +7,9 @@ import './popup.css';
 
 const HSHEN_CONF = {
     author: 'Author: Hshen',
-    api: 'http://api.hackshen.com/message',
+    api: 'https://api.hackshen.com/message',
     qrText: 'Current qr code',
+    optionsText: 'Options',
 }
 
 const openDownload = () => {
@@ -23,6 +24,17 @@ const scriptInject = () => {
         chrome.tabs.sendMessage(tab.id, {action: 'inject'}, (response) => {
             console.log(response.msg);
         });
+    });
+}
+
+const pageReload = () => {
+    chrome.tabs.getSelected(null, (tab) => {//获取当前tab
+        if (/aliexpress\.com/.test(tab?.url)) {
+            //向tab发送请求
+            chrome.tabs.sendMessage(tab.id, {action: 'reload'}, (response) => {
+                console.log(response.msg);
+            });
+        }
     });
 }
 
@@ -62,10 +74,10 @@ const tagData = [
         link: 'https://hackshen.com',
     }, {
         name: 'Hshen@Git',
-        link: 'https://git.hackshen.com',
+        link: '//git.hackshen.com',
     }, {
         name: 'Hshen@Api',
-        link: 'https://api.hackshen.com',
+        link: '//api.hackshen.com',
     },
 ]
 
@@ -77,6 +89,10 @@ function App() {
         tag: '',
     };
     const [state, dispatch] = useReducer(reducer, initialState);
+    const [swChecked, setSwChecked] = useState(false);
+    const [klChecked, setKlChecked] = useState(false);
+    const [currentUrl, setCurrentUrl] = useState('');
+    const [showOptions, setShowOpitons] = useState(false);
     const {qrUrl, message, tag} = state;
     const ref = useRef();
 
@@ -121,18 +137,53 @@ function App() {
             dispatch({type: 'url', value: tab.url});
             ref.current.value = tab.url;
         });
+        chrome.storage.sync.get('openDev', res => {
+            setSwChecked(res?.openDev);
+        });
 
         dispatch({type: 'tag'});
         dispatch({type: 'getMsg'});
     }, []);
-
+    const swCheck = (e) => {
+        const checked = e.target.checked;
+        chrome.storage.sync.set({
+            openDev: checked
+        });
+        pageReload();
+        setSwChecked(checked);
+    }
+    const kaolaClk = e => {
+        const checked = e.target.checked;
+        console.log(checked, 999)
+        chrome.storage.sync.set({
+            kaolaChecked: checked
+        });
+        setKlChecked(checked);
+    }
     return (
         <React.Fragment>
-            <QRCode
-                value={qrUrl}
-                size={256}
-            />
-            <div className="qrtext">{HSHEN_CONF.qrText}</div>
+            {showOptions ? (
+                <div className="options">
+                    <div className="dev-switch">
+                        <span>切换预发环境: </span>
+                        <input onChange={swCheck} checked={swChecked} id="checked_1" type="checkbox"
+                               className="switch"/>
+                        <label htmlFor="checked_1"></label>
+                    </div>
+                    <div className="dev-switch">
+                        <span>🐨抢购模式: </span>
+                        <input onChange={kaolaClk} checked={klChecked} id="checked_2" type="checkbox"
+                               className="switch"/>
+                        <label htmlFor="checked_2"></label>
+                    </div>
+                </div>
+            ) : (
+                <QRCode
+                    value={qrUrl}
+                    size={256}
+                />
+            )}
+            <div className="qrtext">{showOptions ? HSHEN_CONF.optionsText : HSHEN_CONF.qrText}</div>
             <div className="changeInput">
                 <textarea
                     className="url-text"
@@ -146,7 +197,17 @@ function App() {
                     dispatch({type: 'getMsg'})
                 }}>{message}</div>
             <div className={'tabLink'}>{tag}</div>
-            <hr/>
+            <div className="dev-switch">
+                <span>切换预发环境: </span>
+                <input onChange={swCheck} checked={swChecked} id="checked_1" type="checkbox" className="switch"/>
+                <label htmlFor="checked_1"></label>
+            </div>
+            {/*<div className="dev-switch">*/}
+            {/*    <span>🐨抢购模式: </span>*/}
+            {/*    <input onChange={kaolaClk} checked={klChecked} id="checked_2" type="checkbox" className="switch"/>*/}
+            {/*    <label htmlFor="checked_2"></label>*/}
+            {/*</div>*/}
+            <div className="h-line"/>
             <div className="author">
                 <a href="http://hackshen.com" target="_blank">{HSHEN_CONF.author}</a>
             </div>

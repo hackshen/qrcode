@@ -1,0 +1,47 @@
+{
+    "name": "Hshen",
+    "version": "1.0.0",
+    "manifest_version": 2,
+    "description": "提升开发效率",
+    "browser_action": {
+        "default_title": "Title",
+        "default_icon": "favicon.png",
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*/*"
+            ],
+            "js": [
+                "inject.js"
+            ],
+            "run_at": "document_start"
+        }
+    ],
+    "background": {
+        "scripts": [
+            "background.js"
+        ]
+    },
+    "commands": {
+        "_execute_browser_action": {
+            "suggested_key": {
+                "default": "Alt+Shift+S",
+                "mac": "Command+Shift+S"
+            }
+        }
+    },
+    "permissions": [
+        "tabs",
+        "storage",
+        "activeTab",
+        "contextMenus",
+        "declarativeContent",
+        "downloads",
+        "clipboardRead",
+        "clipboardWrite",
+        "chrome://net-internals/#events",
+        "chrome://extensions"
+    ]
+}
