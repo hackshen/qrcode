@@ -2,7 +2,6 @@ import React, {useState, useEffect, useRef, useReducer, useCallback, useMemo} fr
 import ReactDOM from 'react-dom';
 import axios from 'axios';
 import QRCode from 'qrcode.react';
-import 'babel-polyfill';
 import './popup.css';
 
 const HSHEN_CONF = {
@@ -53,6 +52,11 @@ const tagData = [
         name: 'background',
         style: {background: 'skyblue'},
         link: './background.html'
+    },
+    {
+        name: 'test',
+        style: {background: 'skyblue'},
+        link: './table.html'
     },
     {
         name: 'DNS',
@@ -168,7 +172,7 @@ function App() {
                         <span>切换预发环境: </span>
                         <input onChange={swCheck} checked={swChecked} id="checked_1" type="checkbox"
                                className="switch"/>
-                        <label htmlFor="checked_1"></label>
+                        <label htmlFor="checked_1"/>
                     </div>
                     <div className="dev-switch">
                         <span>🐨抢购模式: </span>

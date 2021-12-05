@@ -84,3 +84,10 @@
 // ReactDOM.render(
 //     <App/>
 //     , document.getElementById('root'));
+
+import {bb} from "@/test";
+console.log('shen2');
+bb();
+export default {
+  msg: 'Hello',
+}
