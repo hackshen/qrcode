@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@babel/runtime-corejs3": "^7.16.5",
     "antd": "^4.6.6",
     "axios": "^0.19.2",
     "babel-plugin-transform-runtime": "^6.23.0",

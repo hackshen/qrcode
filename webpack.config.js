@@ -69,7 +69,8 @@ module.exports = {
   },
   entry: {
     popup: './src/popup.js',
-    background: './src/background.js'
+    background: './src/background.js',
+    table: './src/table.js'
   },
 
   output: {
@@ -85,10 +86,11 @@ module.exports = {
   // },
   devtool: env === 'dev' ? 'cheap-module-source-map' : 'source-map',
   devServer: {
+    contentBase: path.join(__dirname, 'assets'),
     host: 'localhost',
     port: '7766',
     progress: true,
-    open: false,
+    open: true,
     hot: true,
   },
   resolve: {
