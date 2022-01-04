@@ -6,6 +6,8 @@ const copyWpackPlugin = require('copy-webpack-plugin');
 const {CleanWebpackPlugin} = require('clean-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const HappyPack = require('happypack');
+const webpack = require('webpack');
+
 const os = require('os')
 
 const happyThreadPool = HappyPack.ThreadPool({size: os.cpus().length})
@@ -147,7 +149,7 @@ module.exports = {
       }
     ]
   },
-  plugins: [new ExtractTextPlugin('[name].[hash:8].css'), table, htmlPlugin, htmlBackground, cssPlugin, copyPlugin, cleanPlugin,
+  plugins: [new ExtractTextPlugin('[name].css'), table, htmlPlugin, htmlBackground, cssPlugin, copyPlugin, cleanPlugin,
     new HappyPack({
       // id标识happypack处理那一类文件
       id: 'happyBabel',
@@ -159,6 +161,8 @@ module.exports = {
       threadPool: happyThreadPool,
       // 日志输出
       verbose: true
-    })
+    }),
+    new webpack.HotModuleReplacementPlugin(),
+    // "react-hot-loader/babel",
   ]
 }
