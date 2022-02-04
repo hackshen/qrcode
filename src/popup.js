@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom';
 import axios from 'axios';
 import QRCode from 'qrcode.react';
 import './popup.css';
+import { Checkbox } from 'antd';
+
 
 const HSHEN_CONF = {
     author: 'Author: Hshen',
@@ -28,10 +30,11 @@ const scriptInject = () => {
 
 const pageReload = () => {
     chrome.tabs.getSelected(null, (tab) => {//获取当前tab
-        if (/aliexpress\.com/.test(tab?.url)) {
+        if (!/aliexpress\.com/.test(tab?.url)) {
             //向tab发送请求
             chrome.tabs.sendMessage(tab.id, {action: 'reload'}, (response) => {
                 console.log(response.msg);
+                // window.close();
             });
         }
     });
@@ -97,8 +100,14 @@ function App() {
     const [klChecked, setKlChecked] = useState(false);
     const [currentUrl, setCurrentUrl] = useState('');
     const [showOptions, setShowOpitons] = useState(false);
+    const [enbArr, setEnbArr] = useState([]);
     const {qrUrl, message, tag} = state;
     const ref = useRef();
+    const options = [
+        { label: 'Dev', value: 'dev' },
+        { label: 'newTab', value: 'newTab' },
+        { label: 'test', value: 'test' },
+    ];
 
     function reducer(state, action) {
         switch (action.type) {
@@ -142,19 +151,25 @@ function App() {
             ref.current.value = tab.url;
         });
         chrome.storage.sync.get('openDev', res => {
-            setSwChecked(res?.openDev);
+            // setSwChecked(res?.openDev);
+            setEnbArr(res?.openDev);
         });
 
         dispatch({type: 'tag'});
         dispatch({type: 'getMsg'});
     }, []);
-    const swCheck = (e) => {
-        const checked = e.target.checked;
-        chrome.storage.sync.set({
-            openDev: checked
+    const swCheck = async (arr) => {
+        // const {checked} = e.target;
+        // chrome.storage.sync.set({
+        //     openDev: checked
+        // });
+        // pageReload();
+        // setSwChecked(checked);
+        await chrome.storage.sync.set({
+            openDev: arr,
         });
+        setEnbArr(arr);
         pageReload();
-        setSwChecked(checked);
     }
     const kaolaClk = e => {
         const checked = e.target.checked;
@@ -201,10 +216,21 @@ function App() {
                     dispatch({type: 'getMsg'})
                 }}>{message}</div>
             <div className={'tabLink'}>{tag}</div>
-            <div className="dev-switch">
-                <span>切换预发环境: </span>
-                <input onChange={swCheck} checked={swChecked} id="checked_1" type="checkbox" className="switch"/>
-                <label htmlFor="checked_1"></label>
+            <div className={'sw-wrap'}>
+                {/*<div className="dev-switch">*/}
+                {/*    <span>dev: </span>*/}
+                {/*    <input onChange={swCheck} checked={swChecked} id="checked_1" type="checkbox" className="switch"/>*/}
+                {/*    <label htmlFor="checked_1"/>*/}
+                {/*</div>*/}
+                <Checkbox.Group
+                  className={'checked-group'}
+                  options={options}
+                  // defaultValue={['Pear']}
+                  value={enbArr}
+                  onChange={swCheck}
+                />
+
+
             </div>
             {/*<div className="dev-switch">*/}
             {/*    <span>🐨抢购模式: </span>*/}

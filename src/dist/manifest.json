@@ -40,6 +40,8 @@
         "declarativeContent",
         "downloads",
         "clipboardRead",
+        "cookies",
+        "proxy",
         "clipboardWrite",
         "chrome://net-internals/#events",
         "chrome://extensions"
