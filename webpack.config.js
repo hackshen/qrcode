@@ -1,10 +1,12 @@
 const path = require('path');
+const fs = require('fs');
 const env = process.env.NODE_ENV;
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const copyWpackPlugin = require('copy-webpack-plugin');
 const {CleanWebpackPlugin} = require('clean-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const HappyPack = require('happypack');
 const webpack = require('webpack');
 
@@ -63,7 +65,20 @@ const table = new HtmlWebpackPlugin({
 const cssPlugin = new MiniCssExtractPlugin({
   filename: env === 'dev' ? 'index.css' : 'index.[hash:8].css'
 });
-
+let testObj = {};
+fs.readdir('./src', function (err, dir) {
+  const arr = dir.filter(item => {
+    if (/\./.test(item)) return false;
+    return item !== 'dist';
+  })
+  const newObj = arr.reduce((obj, name) => {
+    return {
+      ...obj,
+      [name]: `./src/${name}/index.js`,
+    }
+  }, {})
+  testObj = {...newObj};
+});
 module.exports = {
   mode: env === 'dev' ? 'development' : 'production',
   watchOptions: {
@@ -72,7 +87,8 @@ module.exports = {
   entry: {
     popup: './src/popup.js',
     background: './src/background.js',
-    table: './src/table.js'
+    table: './src/table.js',
+    inject: './src/inject.js',
   },
 
   output: {
@@ -162,7 +178,21 @@ module.exports = {
       // 日志输出
       verbose: true
     }),
-    new webpack.HotModuleReplacementPlugin(),
+    // new webpack.HotModuleReplacementPlugin(),
     // "react-hot-loader/babel",
+    // new BundleAnalyzerPlugin(
+    //   {
+    //     analyzerMode: 'server',
+    //     analyzerHost: '127.0.0.1',
+    //     analyzerPort: 8889,
+    //     reportFilename: 'report.html',
+    //     defaultSizes: 'parsed',
+    //     openAnalyzer: true,
+    //     generateStatsFile: false,
+    //     statsFilename: 'stats.json',
+    //     statsOptions: null,
+    //     logLevel: 'info'
+    //   }
+    // ),
   ]
 }
