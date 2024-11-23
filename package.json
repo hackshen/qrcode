@@ -3,45 +3,22 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@babel/runtime-corejs3": "^7.16.5",
-    "antd": "^4.6.6",
-    "axios": "^0.19.2",
-    "babel-plugin-transform-runtime": "^6.23.0",
-    "expose-loader": "^3.1.0",
-    "jsonp": "^0.2.1",
-    "moment": "^2.29.0",
-    "prop-types": "^15.7.2",
-    "qrcode.react": "^1.0.0",
-    "react": "^16.12.0",
-    "react-dom": "^16.12.0",
-    "react-markdown": "^4.2.2",
-    "react-scripts": "3.3.0",
-    "react-syntax-highlighter": "^11.0.2",
-    "regenerator": "^0.14.4",
-    "systeminformation": "^5.6.4",
-    "webpack-bundle-analyzer": "^4.5.0"
+    "antd": "^5.22.2",
+    "axios": "^1.7.7",
+    "qrcode.react": "^4.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "scripts": {
-    "start": "cross-env NODE_ENV=dev webpack --watch",
-    "build": "cross-env NODE_ENV=production webpack",
-    "server": "cross-env NODE_ENV=dev webpack-dev-server"
+    "dev": "rsbuild dev",
+    "build": "rsbuild build"
   },
   "devDependencies": {
-    "babel-polyfill": "^6.26.0",
-    "clean-webpack-plugin": "^3.0.0",
-    "copy-webpack-plugin": "^5.1.1",
-    "core-js": "^3.23.4",
-    "cross-env": "^7.0.2",
-    "css-loader": "^3.6.0",
-    "extract-text-webpack-plugin": "^4.0.0-beta.0",
-    "happypack": "^5.0.1",
-    "mini-css-extract-plugin": "^0.9.0",
-    "raw-loader": "^4.0.0",
-    "react-hot-loader": "^4.13.0",
-    "style-loader": "^1.2.1",
-    "url-loader": "^4.1.0",
-    "webpack": "^4.41.2",
-    "webpack-cli": "^3.3.10",
-    "webpack-dev-server": "^3.9.0"
+    "@eslint/js": "^9.15.0",
+    "@rsbuild/core": "^1.0.19",
+    "@rsbuild/plugin-react": "^1.0.6",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react": "^7.37.2",
+    "globals": "^15.12.0"
   }
 }

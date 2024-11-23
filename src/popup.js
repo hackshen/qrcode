@@ -1,7 +1,7 @@
-import React, {useState, useEffect, useRef, useReducer, useCallback, useMemo} from 'react'
-import ReactDOM from 'react-dom';
+import React, {useState, useEffect, useRef, useReducer} from 'react'
+import ReactDOM from 'react-dom/client';
 import axios from 'axios';
-import QRCode from 'qrcode.react';
+import {QRCodeSVG} from 'qrcode.react';
 import './popup.css';
 import { Checkbox } from 'antd';
 
@@ -10,7 +10,7 @@ const HSHEN_CONF = {
     author: 'Author: Hshen',
     api: 'https://api.hackshen.com/message',
     qrText: 'Current qr code',
-    optionsText: 'Options',
+    optionsText: 'Options'
 }
 
 const openDownload = () => {
@@ -51,16 +51,16 @@ const clearDnsCache = () => {
 }
 
 const tagData = [
-    {
-        name: 'background',
-        style: {background: 'skyblue'},
-        link: './background.html'
-    },
-    {
-        name: 'test',
-        style: {background: 'skyblue'},
-        link: './table.html'
-    },
+    // {
+    //     name: 'background',
+    //     style: {background: 'skyblue'},
+    //     link: './background.html'
+    // },
+    // {
+    //     name: 'test',
+    //     style: {background: 'skyblue'},
+    //     link: './table.html'
+    // },
     {
         name: 'DNS',
         fn: clearDnsCache,
@@ -79,10 +79,12 @@ const tagData = [
     {
         name: 'Hshen@Blog',
         link: 'https://hackshen.com',
-    }, {
+    },
+    {
         name: 'Hshen@Git',
         link: '//git.hackshen.com',
-    }, {
+    },
+    {
         name: 'Hshen@Api',
         link: '//api.hackshen.com',
     },
@@ -129,11 +131,9 @@ function App() {
                 return {...state, tag: tagList}
 
             case 'getMsg':
-                const getMessage = async () => {
-                    const msg = await axios(HSHEN_CONF.api);
-                    dispatch({type: 'message', value: msg.data[0].title})
-                }
-                getMessage();
+                axios(HSHEN_CONF.api).then(res => {
+                    dispatch({type: 'message', value: res.data[0].title})
+                })
                 return {...state}
         }
     }
@@ -154,7 +154,6 @@ function App() {
             // setSwChecked(res?.openDev);
             setEnbArr(res?.openDev);
         });
-
         dispatch({type: 'tag'});
         dispatch({type: 'getMsg'});
     }, []);
@@ -173,7 +172,6 @@ function App() {
     }
     const kaolaClk = e => {
         const checked = e.target.checked;
-        console.log(checked, 999)
         chrome.storage.sync.set({
             kaolaChecked: checked
         });
@@ -197,7 +195,7 @@ function App() {
                     </div>
                 </div>
             ) : (
-                <QRCode
+                <QRCodeSVG
                     value={qrUrl}
                     size={256}
                 />
@@ -222,13 +220,13 @@ function App() {
                 {/*    <input onChange={swCheck} checked={swChecked} id="checked_1" type="checkbox" className="switch"/>*/}
                 {/*    <label htmlFor="checked_1"/>*/}
                 {/*</div>*/}
-                <Checkbox.Group
-                  className={'checked-group'}
-                  options={options}
-                  // defaultValue={['Pear']}
-                  value={enbArr}
-                  onChange={swCheck}
-                />
+                {/*<Checkbox.Group*/}
+                {/*  className={'checked-group'}*/}
+                {/*  options={options}*/}
+                {/*  // defaultValue={['Pear']}*/}
+                {/*  value={enbArr}*/}
+                {/*  onChange={swCheck}*/}
+                {/*/>*/}
 
 
             </div>
@@ -245,6 +243,7 @@ function App() {
     )
 }
 
-ReactDOM.render(
-    <App/>
-    , document.getElementById('root'));
+const root = ReactDOM.createRoot(
+    document.getElementById("root")
+);
+root.render(<App />);

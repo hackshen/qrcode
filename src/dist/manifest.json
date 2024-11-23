@@ -3,6 +3,10 @@
     "version": "1.0.0",
     "manifest_version": 2,
     "description": "提升开发效率",
+    "icons": {
+        "16": "favicon.png",
+        "128": "favicon.png"
+    },
     "browser_action": {
         "default_title": "Title",
         "default_icon": "favicon.png",
@@ -20,6 +24,7 @@
         }
     ],
     "background": {
+        "persistent": true,
         "scripts": [
             "background.js"
         ]
@@ -33,15 +38,18 @@
         }
     },
     "permissions": [
+        "webRequest",
+        "webRequestBlocking",
         "tabs",
         "storage",
+        "cookies",
+        "<all_urls>",
+        "*://*/*",
         "activeTab",
         "contextMenus",
         "declarativeContent",
         "downloads",
         "clipboardRead",
-        "cookies",
-        "proxy",
         "clipboardWrite",
         "chrome://net-internals/#events",
         "chrome://extensions"
