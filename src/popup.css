@@ -32,10 +32,16 @@ div {
 }
 
 .tabLink a {
-    padding: 4px 2px;
-    background: skyblue;
+    /*background: skyblue;*/
     border-radius: 4px;
     margin: 2px;
+    color: white;
+    height: 24px;
+    line-height: 24px;
+    padding: 0 2px;
+    background: #55acee;
+    cursor: pointer;
+
 }
 .sw-wrap {
     /*display: flex;*/

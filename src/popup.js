@@ -62,32 +62,38 @@ const tagData = [
     //     link: './table.html'
     // },
     {
-        name: 'DNS',
+        name: '清除DNS缓存',
         fn: clearDnsCache,
-        style: {background: 'skyblue'},
+        style: {background: '#55acee'},
     },
     {
         name: 'Download',
         fn: openDownload,
-        style: {background: 'skyblue'},
+        // style: {background: 'cyan'},
     },
     {
-        name: 'Inject',
+        name: '注入jQuery',
         fn: scriptInject,
         style: {background: 'skyblue'},
     },
+    // {
+    //     name: 'Hshen@Blog',
+    //     link: 'https://hackshen.com',
+    // },
     {
-        name: 'Hshen@Blog',
-        link: 'https://hackshen.com',
+        name: '工具库',
+        link: 'https://tools.hackshen.com/',
+        style: {background: '#55acee'},
     },
-    {
-        name: 'Hshen@Git',
-        link: '//git.hackshen.com',
-    },
-    {
-        name: 'Hshen@Api',
-        link: '//api.hackshen.com',
-    },
+
+    // {
+    //     name: 'Hshen@Git',
+    //     link: '//git.hackshen.com',
+    // },
+    // {
+    //     name: 'Hshen@Api',
+    //     link: '//api.hackshen.com',
+    // },
 ]
 
 
@@ -122,7 +128,10 @@ function App() {
                 const tagList = tagData.map((item, index) => {
                     return <a
                         key={index}
-                        style={{background: `#${Math.random().toString(16).substr(2, 6).toUpperCase()}`, ...item.style}}
+                        style={{
+                            background: `#${(Math.random() * 18).toString(16).substr(2, 6).toUpperCase()}`,
+                            ...item.style
+                        }}
                         target="_blank"
                         href={item.link}
                         onClick={item.fn}
