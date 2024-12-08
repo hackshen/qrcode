@@ -1,6 +1,10 @@
+const chrome = window.chrome || {};
+import './reload';
 const options = {
     'jQueryURL': 'https://libs.baidu.com/jquery/2.0.0/jquery.min.js'
 };
+
+
 const loadScript = (src, callback) => {
     let script = document.createElement('script');
     script.src = src;
@@ -10,7 +14,8 @@ const loadScript = (src, callback) => {
     document.head.append(script);
 };
 
-console.log('inject!');
+
+console.log('content inject!');
 const locationUrl = window.location.href;
 const s = document.createElement('script');
 s.innerHTML = `window.onerror = function (msg, url, row, col, error) {

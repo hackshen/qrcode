@@ -4,7 +4,8 @@ import axios from 'axios';
 import {QRCodeSVG} from 'qrcode.react';
 import './popup.css';
 import { Checkbox } from 'antd';
-
+const chrome = window.chrome || {};
+console.log(React.version)
 
 const HSHEN_CONF = {
     author: 'Author: Hshen',
