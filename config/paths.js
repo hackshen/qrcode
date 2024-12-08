@@ -51,8 +51,7 @@ const resolveModule = (resolveFn, filePath) => {
 };
 const pageDirectory = resolveApp('src/pages');
 const list = fs.readdirSync(pageDirectory);
-console.log(list, 9999)
-console.log(resolveModule(resolveApp, 'src/index'), resolveApp('src/pages'), 77778);
+
 // err;
 const entry = list.reduce((entry, item) => {
   return {
@@ -62,7 +61,7 @@ const entry = list.reduce((entry, item) => {
 }, {});
 const htmlList = list.filter(item => fs.existsSync(`${pageDirectory}/${item}/index.html`));
 
-console.log(entry,htmlList, 99)
+
 // config after eject: we're in ./config/
 module.exports = {
   dotenv: resolveApp('.env'),

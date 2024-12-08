@@ -93,7 +93,6 @@ checkBrowsers(paths.appPath, isInteractive)
     );
     // process.env.REACT_APP__PORT = port;
     // process.env.REACT_APP__EVENTSOURCE = urls.localUrlForBrowser;;
-    console.log(urls, 3333)
     // Create a webpack compiler that is configured with custom messages.
     const compiler = createCompiler({
       appName,
