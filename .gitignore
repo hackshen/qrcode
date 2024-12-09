@@ -4,3 +4,4 @@ build/
 assets/
 .idea/
 .DS_Store
+release/
