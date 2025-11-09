@@ -86,3 +86,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 // 1. Lotsmall 静态资源 Referer
 // 2. 掘金图片 Referer
 // 3. 黄山静态资源 CORS 头
+
+// ============ SourceMap 自动注入 ============
+importScripts('sourcemap-injector.js');

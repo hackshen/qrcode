@@ -42,7 +42,9 @@
         "contextMenus",
         "downloads",
         "declarativeNetRequest",
-        "declarativeNetRequestWithHostAccess"
+        "declarativeNetRequestWithHostAccess",
+        "webNavigation",
+        "scripting"
     ],
     "host_permissions": [
         "*://*/*"
