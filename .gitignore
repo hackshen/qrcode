@@ -1,6 +1,7 @@
 package-lock.json
 node_modules/
 build/
+release/
 assets/
 .idea/
 .DS_Store

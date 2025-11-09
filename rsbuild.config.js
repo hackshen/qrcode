@@ -38,7 +38,7 @@ export default defineConfig({
     },
     output: {
         copy: [
-            // `./src/assets/image.png` -> `./dist/image.png`
+            // 复制扩展所需的静态文件
             {
                 from: './src/dist',
             },
@@ -46,9 +46,6 @@ export default defineConfig({
         distPath: {
             root: 'build',
         },
-        // sourceMap: {
-        //   js: 'source-map',
-        // },
         filenameHash: false,
         cleanDistPath: true,
     },

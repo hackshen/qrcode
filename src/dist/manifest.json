@@ -1,13 +1,13 @@
 {
     "name": "Hshen",
     "version": "1.0.0",
-    "manifest_version": 2,
+    "manifest_version": 3,
     "description": "提升开发效率",
     "icons": {
         "16": "favicon.png",
         "128": "favicon.png"
     },
-    "browser_action": {
+    "action": {
         "default_title": "Title",
         "default_icon": "favicon.png",
         "default_popup": "popup.html"
@@ -24,13 +24,10 @@
         }
     ],
     "background": {
-        "persistent": true,
-        "scripts": [
-            "background.js"
-        ]
+        "service_worker": "background.js"
     },
     "commands": {
-        "_execute_browser_action": {
+        "_execute_action": {
             "suggested_key": {
                 "default": "Alt+Shift+S",
                 "mac": "Command+Shift+S"
@@ -38,20 +35,25 @@
         }
     },
     "permissions": [
-        "webRequest",
-        "webRequestBlocking",
         "tabs",
         "storage",
         "cookies",
-        "<all_urls>",
-        "*://*/*",
         "activeTab",
         "contextMenus",
-        "declarativeContent",
         "downloads",
-        "clipboardRead",
-        "clipboardWrite",
-        "chrome://net-internals/#events",
-        "chrome://extensions"
-    ]
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess"
+    ],
+    "host_permissions": [
+        "*://*/*"
+    ],
+    "declarative_net_request": {
+        "rule_resources": [
+            {
+                "id": "ruleset_1",
+                "enabled": true,
+                "path": "rules.json"
+            }
+        ]
+    }
 }
