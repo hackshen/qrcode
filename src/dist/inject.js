@@ -9,14 +9,17 @@ let CONFIG = {
     api: {
         message: 'https://api.hackshen.com/message',
     },
-    // SourceMap 监控域名（留空则不启用）
-    sourcemapDomains: [],
     // 功能开关
     features: {
         doubleCopyClick: true,      // 双击复制
         passwordReveal: true,        // 密码框显示
         globalErrorMonitor: false,   // 全局错误监控
         sourcemapMonitor: false,     // SourceMap 监控
+    },
+    // OCR 验证码识别配置
+    ocr: {
+        autoRecognize: false,
+        apiUrl: 'https://api.hackshen.com/ocr'
     },
 };
 
@@ -45,68 +48,11 @@ const loadScript = (src, callback) => {
     document.head.append(script);
 };
 
-// ============ SourceMap 监控（可选功能）============
+// ============ SourceMap 监控（已禁用）============
 
 function initSourceMapMonitor() {
-    if (!CONFIG.features.sourcemapMonitor || CONFIG.sourcemapDomains.length === 0) {
-        return;
-    }
-
-    function shouldReportJS(url) {
-        try {
-            const { hostname } = new URL(url);
-            return CONFIG.sourcemapDomains.includes(hostname) && url.endsWith('.js');
-        } catch {
-            return false;
-        }
-    }
-
-    function reportJSUrl(url) {
-        chrome.runtime.sendMessage({
-            action: 'add-sourcemap',
-            url: url
-        }).catch(() => {
-            // 忽略错误（Service Worker 可能未启动）
-        });
-    }
-
-    // 监听动态添加的 script 标签
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (node.tagName === 'SCRIPT' && node.src && shouldReportJS(node.src)) {
-                    console.log('[SourceMap] 🔍 发现动态 JS:', node.src);
-                    reportJSUrl(node.src);
-                }
-            });
-        });
-    });
-
-    // 开始监听
-    if (document.documentElement) {
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true
-        });
-    } else {
-        document.addEventListener('DOMContentLoaded', () => {
-            observer.observe(document.documentElement, {
-                childList: true,
-                subtree: true
-            });
-        });
-    }
-
-    // 页面加载时上报已存在的 JS
-    window.addEventListener('load', () => {
-        document.querySelectorAll('script[src]').forEach(script => {
-            if (shouldReportJS(script.src)) {
-                reportJSUrl(script.src);
-            }
-        });
-    });
-
-    console.log('[SourceMap] 👀 监听域名:', CONFIG.sourcemapDomains);
+    // 功能已禁用
+    return;
 }
 
 // ============ 全局错误监控（可选功能）============
@@ -374,26 +320,26 @@ const recognizingImages = new WeakSet(); // 正在识别的图片（避免重复
 // 快速判断是否是验证码图片
 function isCaptchaImage(img) {
     const parentClass = img.parentElement?.className || '';
+    const imgClass = img.className || '';
     
-    // 在特定容器内的图片都是验证码
-    return parentClass.includes('tel-code') || 
-           parentClass.includes('code-img') ||
-           parentClass.includes('captcha') ||
-           img.className?.includes('captcha') ||
-           img.id?.includes('captcha');
+    // 检查图片自身类名或父容器
+    return imgClass.includes('code-img') ||           // img.code-img
+           imgClass.includes('captcha') ||            // img.captcha
+           img.id?.includes('captcha') ||
+           parentClass.includes('tel-code') ||        // .tel-code > img
+           parentClass.includes('captcha');           // .captcha > img
 }
 
 // 验证码图片选择器（用于首次扫描）
 const CAPTCHA_SELECTORS = [
-    '.tel-code img',
-    '.code-img img',
-    '[class*="captcha"] img'
+    '.tel-code img',           // .tel-code 容器内的 img
+    'img.code-img',            // img 自带 code-img 类名
+    'img[class*="captcha"]'  // img 自带 captcha 类名
 ];
 
 // 验证码输入框选择器
 const INPUT_SELECTORS = [
     '.tel-code input',
-    '.code-img input',
     '[class*="captcha"] input',
     'input[name*="captcha"]',
     'input[id*="captcha"]',
@@ -451,8 +397,7 @@ function startCaptchaMonitor() {
     });
     
     // 🎯 只监听特定验证码容器，大幅减少性能开销
-    const captchaContainers = document.querySelectorAll('.tel-code, .code-img, [class*="captcha"]');
-    
+    const captchaContainers = document.querySelectorAll('.tel-code, [class*="captcha"]');
     if (captchaContainers.length > 0) {
         captchaContainers.forEach(container => {
             observer.observe(container, {
@@ -479,7 +424,7 @@ function startCaptchaMonitor() {
     const bodyObserver = new MutationObserver(() => {
         clearTimeout(containerCheckTimer);
         containerCheckTimer = setTimeout(() => {
-            const newContainers = document.querySelectorAll('.tel-code, .code-img, [class*="captcha"]');
+            const newContainers = document.querySelectorAll('.tel-code, [class*="captcha"]');
             newContainers.forEach(container => {
                 // 检查是否已监听
                 if (!container.dataset.captchaObserved) {

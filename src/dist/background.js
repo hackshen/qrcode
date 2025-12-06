@@ -172,4 +172,4 @@ function handleSetSessionId(tab) {
 importScripts('http-rules-manager.js');
 
 // ============ SourceMap 自动注入 ============
-importScripts('sourcemap-injector.js');
+// importScripts('sourcemap-injector.js');

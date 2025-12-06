@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
         doubleCopyClick: true,
         passwordReveal: true,
         globalErrorMonitor: false,
-        sourcemapMonitor: false,
+        // sourcemapMonitor: false,
     },
     // API 配置
     api: {
@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
         jquery: 'https://libs.baidu.com/jquery/2.0.0/jquery.min.js',
     },
     // SourceMap 域名
-    sourcemapDomains: [],
+    // sourcemapDomains: [],
     // HTTP 头规则
     httpRules: [
         {
@@ -239,12 +239,12 @@ function OptionsApp() {
                             checked={config.features.globalErrorMonitor}
                             onChange={(checked) => updateConfig('features.globalErrorMonitor', checked)}
                         />
-                        <OptionItem
+                        {/* <OptionItem
                             title="SourceMap 监控"
                             description="监控指定域名的 JS 文件并自动注入 SourceMap 头（需刷新页面）"
                             checked={config.features.sourcemapMonitor}
                             onChange={(checked) => updateConfig('features.sourcemapMonitor', checked)}
-                        />
+                        /> */}
                     </div>
                 </section>
 
@@ -278,7 +278,7 @@ function OptionsApp() {
                 </section>
 
                 {/* SourceMap 域名配置 */}
-                <section className="section">
+                {/* <section className="section">
                     <h2>🗺️ SourceMap 监控域名</h2>
                     <div className="option-group">
                         <div className="form-item">
@@ -306,7 +306,7 @@ function OptionsApp() {
                             </p>
                         </div>
                     </div>
-                </section>
+                </section> */}
 
                 {/* HTTP 头规则管理 */}
                 <section className="section">
