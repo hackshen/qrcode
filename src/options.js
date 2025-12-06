@@ -50,7 +50,12 @@ const DEFAULT_CONFIG = {
             headerName: 'Access-Control-Allow-Origin',
             headerValue: '*'
         }
-    ]
+    ],
+    // OCR 验证码识别
+    ocr: {
+        apiUrl: 'https://api.hackshen.com/ocr',
+        autoRecognize: false  // 自动识别页面验证码
+    }
 };
 
 // ============ React 组件 ============
@@ -84,7 +89,10 @@ function OptionsApp() {
     const loadConfig = async () => {
         try {
             const result = await chrome.storage.sync.get('extensionConfig');
-            const loadedConfig = result.extensionConfig || DEFAULT_CONFIG;
+            // 合并默认配置，确保所有字段都存在
+            const loadedConfig = result.extensionConfig 
+                ? { ...DEFAULT_CONFIG, ...result.extensionConfig, ocr: { ...DEFAULT_CONFIG.ocr, ...result.extensionConfig.ocr } }
+                : DEFAULT_CONFIG;
             setConfig(loadedConfig);
             setLoading(false);
         } catch (error) {
@@ -178,7 +186,11 @@ function OptionsApp() {
             const keys = path.split('.');
             let current = newConfig;
             
+            // 确保路径上的所有父对象都存在
             for (let i = 0; i < keys.length - 1; i++) {
+                if (!current[keys[i]]) {
+                    current[keys[i]] = {};
+                }
                 current = current[keys[i]];
             }
             
@@ -303,6 +315,32 @@ function OptionsApp() {
                         rules={config.httpRules || []}
                         onChange={(rules) => updateConfig('httpRules', rules)}
                     />
+                </section>
+
+                {/* 验证码识别 */}
+                <section className="section">
+                    <h2>🔍 验证码自动识别</h2>
+                    <div className="option-group">
+                        <OptionItem
+                            title="自动识别验证码"
+                            description="自动识别网页中的验证码图片并填充到输入框"
+                            checked={config.ocr?.autoRecognize || false}
+                            onChange={(checked) => updateConfig('ocr.autoRecognize', checked)}
+                        />
+                        <div className="form-item">
+                            <label>OCR API 地址</label>
+                            <input
+                                type="url"
+                                value={config.ocr?.apiUrl || 'https://api.hackshen.com/ocr'}
+                                onChange={(e) => updateConfig('ocr.apiUrl', e.target.value)}
+                                placeholder="https://api.hackshen.com/ocr"
+                            />
+                            <p className="hint">
+                                💡 开启后，将自动识别页面中的验证码图片<br />
+                                支持常见的验证码输入框自动填充
+                            </p>
+                        </div>
+                    </div>
                 </section>
 
                 {/* 数据管理 */}
@@ -721,7 +759,7 @@ function OptionItem({ title, description, checked, onChange }) {
     );
 }
 
-// 保存数据展示组件
+// 保存数据显示组件
 function SavedDataDisplay({ data }) {
     if (!data || (!data.sessionid && !data.tyAuthToken)) {
         return (

@@ -300,6 +300,7 @@ async function init() {
     // 等待 DOM 就绪
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initFeatures);
+        
     } else {
         initFeatures();
     }
@@ -314,10 +315,12 @@ function initFeatures() {
     if (document.body) {
         initDoubleClickCopy();
         initPasswordReveal();
+        initCaptchaAutoFill(); // 初始化验证码自动识别
     } else {
         window.addEventListener('load', () => {
             initDoubleClickCopy();
             initPasswordReveal();
+            initCaptchaAutoFill(); // 初始化验证码自动识别
         });
     }
     
@@ -339,8 +342,322 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
                 console.log('[SourceMap] 🔄 开关已关闭，刷新页面后生效');
             }
         }
+        
+        // 检查 OCR 配置是否变化
+        if (CONFIG.ocr) {
+            const wasEnabled = captchaConfig.autoRecognize;
+            captchaConfig.autoRecognize = CONFIG.ocr.autoRecognize || false;
+            captchaConfig.apiUrl = CONFIG.ocr.apiUrl || 'https://api.hackshen.com/ocr';
+            
+            if (!wasEnabled && captchaConfig.autoRecognize) {
+                console.log('[Captcha Auto Fill] ✅ 自动识别已启用，启动监控');
+                startCaptchaMonitor();
+            } else if (wasEnabled && !captchaConfig.autoRecognize) {
+                console.log('[Captcha Auto Fill] ⏸️  自动识别已禁用');
+            }
+        }
     }
 });
 
 // 启动
 init();
+
+// ============ 验证码自动识别功能 ============
+
+let captchaConfig = {
+    autoRecognize: false,
+    apiUrl: 'https://api.hackshen.com/ocr'
+};
+
+const recognizingImages = new WeakSet(); // 正在识别的图片（避免重复）
+
+// 快速判断是否是验证码图片
+function isCaptchaImage(img) {
+    const parentClass = img.parentElement?.className || '';
+    
+    // 在特定容器内的图片都是验证码
+    return parentClass.includes('tel-code') || 
+           parentClass.includes('code-img') ||
+           parentClass.includes('captcha') ||
+           img.className?.includes('captcha') ||
+           img.id?.includes('captcha');
+}
+
+// 验证码图片选择器（用于首次扫描）
+const CAPTCHA_SELECTORS = [
+    '.tel-code img',
+    '.code-img img',
+    '[class*="captcha"] img'
+];
+
+// 验证码输入框选择器
+const INPUT_SELECTORS = [
+    '.tel-code input',
+    '.code-img input',
+    '[class*="captcha"] input',
+    'input[name*="captcha"]',
+    'input[id*="captcha"]',
+    'input[placeholder*="验证码"]'
+];
+
+// 启动验证码监控
+function startCaptchaMonitor() {
+    if (!captchaConfig.autoRecognize) return;
+    
+    // 初始扫描（立即执行，无延迟）
+    scanCaptchaImages();
+    
+    // 防抖：避免频繁触发（仅用于动态变化）
+    let debounceTimer = null;
+    const debouncedScan = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            scanCaptchaImages();
+        }, 300);
+    };
+    
+    const observer = new MutationObserver((mutations) => {
+        if (!captchaConfig.autoRecognize) return;
+        
+        let immediateCheckImages = []; // 需要立即检查的图片
+        
+        for (const mutation of mutations) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType !== 1) return; // 只处理元素节点
+                    
+                    if (node.tagName === 'IMG' && isCaptchaImage(node)) {
+                        // 只有验证码图片才识别
+                        immediateCheckImages.push(node);
+                    }
+                });
+            } else if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+                if (mutation.target.tagName === 'IMG' && isCaptchaImage(mutation.target)) {
+                    const img = mutation.target;
+                    // src 变化时，清除识别状态并重新识别
+                    if (recognizingImages.has(img)) {
+                        recognizingImages.delete(img);
+                    }
+                    console.log('[Captcha Auto Fill] 🔄 验证码图片 src 已变化，立即重新识别');
+                    immediateCheckImages.push(img);
+                }
+            }
+        }
+        
+        // 立即处理验证码图片（0ms 延迟）
+        if (immediateCheckImages.length > 0) {
+            immediateCheckImages.forEach(img => checkAndRecognizeCaptcha(img));
+        }
+    });
+    
+    // 🎯 只监听特定验证码容器，大幅减少性能开销
+    const captchaContainers = document.querySelectorAll('.tel-code, .code-img, [class*="captcha"]');
+    
+    if (captchaContainers.length > 0) {
+        captchaContainers.forEach(container => {
+            observer.observe(container, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['src']
+            });
+        });
+        console.log(`[Captcha Auto Fill] 👀 监控已启动 (监听 ${captchaContainers.length} 个验证码容器)`);
+    } else {
+        // 如果没找到特定容器，降级为监听 body（兼容性）
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['src']
+        });
+        console.log('[Captcha Auto Fill] 👀 监控已启动 (未找到特定容器，监听整个页面)');
+    }
+    
+    // 监听容器动态添加（防抖，减少性能开销）
+    let containerCheckTimer = null;
+    const bodyObserver = new MutationObserver(() => {
+        clearTimeout(containerCheckTimer);
+        containerCheckTimer = setTimeout(() => {
+            const newContainers = document.querySelectorAll('.tel-code, .code-img, [class*="captcha"]');
+            newContainers.forEach(container => {
+                // 检查是否已监听
+                if (!container.dataset.captchaObserved) {
+                    container.dataset.captchaObserved = 'true';
+                    observer.observe(container, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['src']
+                    });
+                    console.log('[Captcha Auto Fill] ➕ 检测到新的验证码容器，已添加监听');
+                    // 扫描新容器中的图片
+                    const images = container.querySelectorAll('img');
+                    images.forEach(img => {
+                        if (isCaptchaImage(img)) {
+                            checkAndRecognizeCaptcha(img);
+                        }
+                    });
+                }
+            });
+        }, 500);
+    });
+    
+    bodyObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+// 扫描页面中的验证码图片
+function scanCaptchaImages() {
+    const imageSet = new Set();
+    
+    CAPTCHA_SELECTORS.forEach(selector => {
+        try {
+            const images = document.querySelectorAll(selector);
+            images.forEach(img => imageSet.add(img));
+        } catch (e) {
+            // 忽略无效的选择器
+        }
+    });
+    
+    const uniqueImages = Array.from(imageSet);
+    if (uniqueImages.length > 0) {
+        console.log('[Captcha Auto Fill] 🔍 发现', uniqueImages.length, '个验证码图片');
+        uniqueImages.forEach(img => checkAndRecognizeCaptcha(img));
+    }
+}
+
+// 检查并识别验证码
+function checkAndRecognizeCaptcha(img) {
+    if (!img.src) return;
+    
+    // 检查是否正在识别或已识别过（使用图片元素本身，而不是 URL）
+    if (recognizingImages.has(img)) return;
+    
+    // 检查图片尺寸
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    
+    if (width > 500 || height > 200 || width < 30 || height < 20) return;
+    
+    // 标记为正在识别
+    recognizingImages.add(img);
+    
+    // 检查图片是否已加载完成
+    if (img.complete && img.naturalWidth > 0) {
+        recognizeCaptcha(img);
+    } else {
+        let recognized = false;
+        
+        img.onload = () => {
+            if (!recognized) {
+                recognized = true;
+                recognizeCaptcha(img);
+            }
+        };
+        
+        setTimeout(() => {
+            if (!recognized) {
+                recognized = true;
+                recognizeCaptcha(img);
+            }
+        }, 500);
+    }
+}
+
+// 识别验证码
+async function recognizeCaptcha(img) {
+    try {
+        const imageUrl = img.src;
+        console.log('[Captcha Auto Fill] 🔄 正在识别:', imageUrl);
+        
+        const response = await fetch(`${captchaConfig.apiUrl}/recognize?url=${encodeURIComponent(imageUrl)}`);
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            const text = data.text;
+            const confidence = data.confidence;
+            
+            console.log('[Captcha Auto Fill] ✅ 识别成功:', text, '置信度:', confidence + '%');
+            
+            const input = findNearbyInput(img);
+            if (input) {
+                fillInput(input, text);
+            } else {
+                console.log('[Captcha Auto Fill] ⚠️  未找到验证码输入框');
+            }
+        } else {
+            console.error('[Captcha Auto Fill] ❌ 识别失败:', data.error || '未知错误');
+        }
+    } catch (error) {
+        console.error('[Captcha Auto Fill] ❌ 识别出错:', error);
+    }
+}
+
+// 查找附近的输入框
+function findNearbyInput(img) {
+    const parent = img.closest('label');
+    if (parent?.htmlFor) {
+        const input = document.getElementById(parent.htmlFor);
+        if (input && input.tagName === 'INPUT') return input;
+    }
+    
+    for (const selector of INPUT_SELECTORS) {
+        const input = document.querySelector(selector);
+        if (input) return input;
+    }
+    
+    const form = img.closest('form');
+    if (form) {
+        const inputs = form.querySelectorAll('input[type="text"], input:not([type])');
+        for (const input of inputs) {
+            if (!input.value) return input;
+        }
+        if (inputs.length > 0) return inputs[0];
+    }
+    
+    let current = img.parentElement;
+    let depth = 0;
+    while (current && depth < 5) {
+        const inputs = current.querySelectorAll('input[type="text"], input:not([type])');
+        if (inputs.length > 0) {
+            for (const input of inputs) {
+                if (!input.value && input.offsetWidth > 0 && input.offsetHeight > 0) {
+                    return input;
+                }
+            }
+        }
+        current = current.parentElement;
+        depth++;
+    }
+    
+    return null;
+}
+
+// 填充输入框
+function fillInput(input, text) {
+    input.value = text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    
+    console.log('[Captcha Auto Fill] 📝 已填充:', text);
+}
+
+// 初始化验证码自动识别
+function initCaptchaAutoFill() {
+    if (!CONFIG?.ocr) return;
+    
+    captchaConfig.autoRecognize = CONFIG.ocr.autoRecognize || false;
+    captchaConfig.apiUrl = CONFIG.ocr.apiUrl || 'https://api.hackshen.com/ocr';
+    
+    console.log('[Captcha Auto Fill] � 配置加载完成');
+    console.log('[Captcha Auto Fill] 开关状态:', captchaConfig.autoRecognize ? '✅ 启用' : '⏸️  禁用');
+    
+    if (captchaConfig.autoRecognize) {
+        console.log('[Captcha Auto Fill] 🚀 启动监控');
+        startCaptchaMonitor();
+    }
+}
