@@ -52,11 +52,5 @@
     ],
     "host_permissions": [
         "*://*/*"
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": ["error-monitor.js"],
-            "matches": ["<all_urls>"]
-        }
     ]
 }

@@ -13,7 +13,7 @@ let CONFIG = {
     features: {
         doubleCopyClick: true,      // 双击复制
         passwordReveal: true,        // 密码框显示
-        globalErrorMonitor: false,   // 全局错误监控
+        // globalErrorMonitor: false,   // 全局错误监控
         sourcemapMonitor: false,     // SourceMap 监控
     },
     // OCR 验证码识别配置
@@ -55,28 +55,11 @@ function initSourceMapMonitor() {
     return;
 }
 
-// ============ 全局错误监控（可选功能）============
+// ============ 全局错误监控（已禁用）============
 
 function initGlobalErrorMonitor() {
-    if (!CONFIG.features.globalErrorMonitor) {
-        return;
-    }
-
-    // 注入独立的错误监控脚本到页面上下文
-    // 这样可以捕获页面的 JavaScript 错误，而不违反 CSP
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('error-monitor.js');
-    script.onload = function() {
-        console.log('[Error Monitor] ✅ 错误监控脚本已注入');
-        this.remove(); // 加载后移除 script 标签
-    };
-    script.onerror = function() {
-        console.error('[Error Monitor] ❌ 错误监控脚本加载失败');
-        this.remove();
-    };
-    
-    // 注入到页面
-    (document.head || document.documentElement).appendChild(script);
+    // 功能已禁用
+    return;
 }
 
 // ============ 消息处理器 ============
@@ -255,7 +238,7 @@ async function init() {
 function initFeatures() {
     // 初始化可选功能
     initSourceMapMonitor();
-    initGlobalErrorMonitor();
+    // initGlobalErrorMonitor();  // 已禁用
     
     // 等待 body 加载完成
     if (document.body) {
@@ -327,12 +310,14 @@ function isCaptchaImage(img) {
            imgClass.includes('captcha') ||            // img.captcha
            img.id?.includes('captcha') ||
            parentClass.includes('tel-code') ||        // .tel-code > img
+           parentClass.includes('checkcode-warper') || // .checkcode-warper > img
            parentClass.includes('captcha');           // .captcha > img
 }
 
 // 验证码图片选择器（用于首次扫描）
 const CAPTCHA_SELECTORS = [
     '.tel-code img',           // .tel-code 容器内的 img
+    '.checkcode-warper img',   // .checkcode-warper 容器内的 img
     'img.code-img',            // img 自带 code-img 类名
     'img[class*="captcha"]'  // img 自带 captcha 类名
 ];
@@ -340,6 +325,7 @@ const CAPTCHA_SELECTORS = [
 // 验证码输入框选择器
 const INPUT_SELECTORS = [
     '.tel-code input',
+    '.checkcode-warper input',
     '[class*="captcha"] input',
     'input[name*="captcha"]',
     'input[id*="captcha"]',
@@ -353,15 +339,7 @@ function startCaptchaMonitor() {
     // 初始扫描（立即执行，无延迟）
     scanCaptchaImages();
     
-    // 防抖：避免频繁触发（仅用于动态变化）
-    let debounceTimer = null;
-    const debouncedScan = () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            scanCaptchaImages();
-        }, 300);
-    };
-    
+    // 统一监听 body，通过 isCaptchaImage 过滤验证码图片
     const observer = new MutationObserver((mutations) => {
         if (!captchaConfig.autoRecognize) return;
         
@@ -372,9 +350,19 @@ function startCaptchaMonitor() {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType !== 1) return; // 只处理元素节点
                     
+                    // 如果新增节点本身是验证码图片
                     if (node.tagName === 'IMG' && isCaptchaImage(node)) {
-                        // 只有验证码图片才识别
                         immediateCheckImages.push(node);
+                    }
+                    
+                    // 如果新增节点包含验证码图片（例如新增了一个容器）
+                    if (node.querySelectorAll) {
+                        const images = node.querySelectorAll('img');
+                        images.forEach(img => {
+                            if (isCaptchaImage(img)) {
+                                immediateCheckImages.push(img);
+                            }
+                        });
                     }
                 });
             } else if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
@@ -396,62 +384,15 @@ function startCaptchaMonitor() {
         }
     });
     
-    // 🎯 只监听特定验证码容器，大幅减少性能开销
-    const captchaContainers = document.querySelectorAll('.tel-code, [class*="captcha"]');
-    if (captchaContainers.length > 0) {
-        captchaContainers.forEach(container => {
-            observer.observe(container, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['src']
-            });
-        });
-        console.log(`[Captcha Auto Fill] 👀 监控已启动 (监听 ${captchaContainers.length} 个验证码容器)`);
-    } else {
-        // 如果没找到特定容器，降级为监听 body（兼容性）
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['src']
-        });
-        console.log('[Captcha Auto Fill] 👀 监控已启动 (未找到特定容器，监听整个页面)');
-    }
-    
-    // 监听容器动态添加（防抖，减少性能开销）
-    let containerCheckTimer = null;
-    const bodyObserver = new MutationObserver(() => {
-        clearTimeout(containerCheckTimer);
-        containerCheckTimer = setTimeout(() => {
-            const newContainers = document.querySelectorAll('.tel-code, [class*="captcha"]');
-            newContainers.forEach(container => {
-                // 检查是否已监听
-                if (!container.dataset.captchaObserved) {
-                    container.dataset.captchaObserved = 'true';
-                    observer.observe(container, {
-                        childList: true,
-                        subtree: true,
-                        attributes: true,
-                        attributeFilter: ['src']
-                    });
-                    console.log('[Captcha Auto Fill] ➕ 检测到新的验证码容器，已添加监听');
-                    // 扫描新容器中的图片
-                    const images = container.querySelectorAll('img');
-                    images.forEach(img => {
-                        if (isCaptchaImage(img)) {
-                            checkAndRecognizeCaptcha(img);
-                        }
-                    });
-                }
-            });
-        }, 500);
-    });
-    
-    bodyObserver.observe(document.body, {
+    // 监听整个 body
+    observer.observe(document.body, {
         childList: true,
-        subtree: true
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src']
     });
+    
+    console.log('[Captcha Auto Fill] 👀 监控已启动');
 }
 
 // 扫描页面中的验证码图片

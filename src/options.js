@@ -8,7 +8,7 @@ const DEFAULT_CONFIG = {
     features: {
         doubleCopyClick: true,
         passwordReveal: true,
-        globalErrorMonitor: false,
+        // globalErrorMonitor: false,
         // sourcemapMonitor: false,
     },
     // API 配置
@@ -233,12 +233,12 @@ function OptionsApp() {
                             checked={config.features.passwordReveal}
                             onChange={(checked) => updateConfig('features.passwordReveal', checked)}
                         />
-                        <OptionItem
+                        {/* <OptionItem
                             title="全局错误监控"
                             description="监控页面 JavaScript 错误、Promise 异常和资源加载错误"
                             checked={config.features.globalErrorMonitor}
                             onChange={(checked) => updateConfig('features.globalErrorMonitor', checked)}
-                        />
+                        /> */}
                         {/* <OptionItem
                             title="SourceMap 监控"
                             description="监控指定域名的 JS 文件并自动注入 SourceMap 头（需刷新页面）"
