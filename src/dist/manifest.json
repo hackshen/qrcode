@@ -12,6 +12,10 @@
         "default_icon": "favicon.png",
         "default_popup": "popup.html"
     },
+    "options_ui": {
+        "page": "options.html",
+        "open_in_tab": true
+    },
     "content_scripts": [
         {
             "matches": [
@@ -49,13 +53,10 @@
     "host_permissions": [
         "*://*/*"
     ],
-    "declarative_net_request": {
-        "rule_resources": [
-            {
-                "id": "ruleset_1",
-                "enabled": true,
-                "path": "rules.json"
-            }
-        ]
-    }
+    "web_accessible_resources": [
+        {
+            "resources": ["error-monitor.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
 }

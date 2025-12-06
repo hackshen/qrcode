@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useReducer } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -14,31 +14,68 @@ const HSHEN_CONF = {
     toolsUrl: CONFIG.author.toolsUrl,
 };
 
+// ============ 工具函数 ============
+
+// 生成随机颜色
+const generateRandomColor = () => {
+    return '#' + Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
+};
+
+// 获取当前活动标签页
+const getCurrentTab = async () => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tabs[0];
+};
+
+// ============ Chrome API 操作函数 ============
+
 const openDownload = () => {
-    chrome.runtime.getPlatformInfo(function (info) {
-        chrome.downloads.showDefaultFolder();
-    });
+    chrome.downloads.showDefaultFolder();
 };
 
-const scriptInject = () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'inject' }, (response) => {
-            console.log(response?.msg);
+const scriptInject = async () => {
+    try {
+        const tab = await getCurrentTab();
+        chrome.tabs.sendMessage(tab.id, { action: 'inject' }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('❌ jQuery 注入失败:', chrome.runtime.lastError);
+            } else {
+                console.log('✅ jQuery 注入成功:', response?.msg);
+            }
         });
-    });
+    } catch (error) {
+        console.error('❌ 获取标签页失败:', error);
+    }
 };
 
-
-const clearDnsCache = () => {
-    chrome.tabs.create({ url: 'chrome://net-internals', active: false }, tab => {
-        chrome.tabs.executeScript(tab.id, { file: 'clear.js' }, () => {
-            chrome.tabs.remove(tab.id, () => {
-                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                    chrome.tabs.sendMessage(tabs[0].id, { action: 'clear' });
+const clearDnsCache = async () => {
+    try {
+        // 使用 Manifest V3 的 scripting API
+        const tab = await chrome.tabs.create({ 
+            url: 'chrome://net-internals', 
+            active: false 
+        });
+        
+        // 等待片刻让页面加载
+        setTimeout(async () => {
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['clear.js']
                 });
-            });
-        });
-    });
+                
+                await chrome.tabs.remove(tab.id);
+                
+                const currentTab = await getCurrentTab();
+                chrome.tabs.sendMessage(currentTab.id, { action: 'clear' });
+            } catch (error) {
+                console.error('❌ DNS 缓存清除失败:', error);
+                await chrome.tabs.remove(tab.id);
+            }
+        }, 500);
+    } catch (error) {
+        console.error('❌ 创建标签页失败:', error);
+    }
 };
 
 // 映射配置中的 action 到实际函数
@@ -48,98 +85,143 @@ const actionMap = {
     scriptInject,
 };
 
-const tagData = CONFIG.quickLinks.map(link => ({
-    name: link.name,
-    fn: link.action ? actionMap[link.action] : undefined,
-    link: link.link,
-    style: link.style,
-}));
-
-function App() {
-    const initialState = {
-        qrUrl: '',
-        message: '',
-        tag: '',
-    };
-    const [state, dispatch] = useReducer(reducer, initialState);
-    const { qrUrl, message, tag } = state;
-    const ref = useRef();
-
-    function reducer(state, action) {
-        switch (action.type) {
-            case 'url':
-                return { ...state, qrUrl: action.value };
-
-            case 'message':
-                return { ...state, message: action.value };
-                
-            case 'tag':
-                const tagList = tagData.map((item, index) => {
-                    return <a
-                        key={index}
-                        style={{
-                            background: `#${(Math.random() * 18).toString(16).substr(2, 6).toUpperCase()}`,
-                            ...item.style
-                        }}
-                        target="_blank"
-                        href={item.link}
-                        onClick={item.fn}
-                    >{item.name}</a>;
-                });
-                return { ...state, tag: tagList };
-
-            case 'getMsg':
-                axios(HSHEN_CONF.api).then(res => {
-                    dispatch({ type: 'message', value: res.data[0].title });
-                });
-                return { ...state };
-                
-            default:
-                return state;
+// ============ QuickLink 组件 ============
+const QuickLink = ({ link, index }) => {
+    const handleClick = (e) => {
+        if (link.action && actionMap[link.action]) {
+            e.preventDefault();
+            actionMap[link.action]();
         }
-    }
-
-    const getValue = (e) => {
-        const value = e.target.value;
-        ref.current.value = value;
-        dispatch({ type: 'url', value: value });
     };
 
+    const style = {
+        background: link.style?.background || generateRandomColor(),
+        ...link.style
+    };
+
+    return (
+        <a
+            key={index}
+            style={style}
+            target="_blank"
+            href={link.link}
+            onClick={handleClick}
+            rel="noopener noreferrer"
+        >
+            {link.name}
+        </a>
+    );
+};
+
+// ============ 主组件 ============
+function App() {
+    const [qrUrl, setQrUrl] = useState('');
+    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const inputRef = useRef();
+
+    // 获取每日一句
+    const fetchMessage = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            // 从配置读取 API 地址
+            const config = await chrome.storage.sync.get('extensionConfig');
+            const apiUrl = config.extensionConfig?.api?.message || HSHEN_CONF.api;
+            
+            const response = await axios.get(apiUrl);
+            const msg = response.data?.[0]?.title || '暂无数据';
+            setMessage(msg);
+        } catch (err) {
+            console.error('❌ 获取消息失败:', err);
+            setError('获取失败，点击重试');
+            setMessage('获取失败，点击重试');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 输入框变化处理
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        setQrUrl(value);
+    };
+
+    // 初始化
     useEffect(() => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            const tab = tabs[0];
-            window.tabId = tab.id;
-            dispatch({ type: 'url', value: tab.url });
-            ref.current.value = tab.url;
-        });
-        
-        dispatch({ type: 'tag' });
-        dispatch({ type: 'getMsg' });
+        const initPopup = async () => {
+            try {
+                const tab = await getCurrentTab();
+                if (tab) {
+                    window.tabId = tab.id;
+                    setQrUrl(tab.url);
+                    if (inputRef.current) {
+                        inputRef.current.value = tab.url;
+                    }
+                }
+            } catch (error) {
+                console.error('❌ 初始化失败:', error);
+            }
+        };
+
+        initPopup();
+        fetchMessage();
     }, []);
     
     return (
         <React.Fragment>
+            {/* 二维码 */}
             <QRCodeSVG
-                value={qrUrl}
+                value={qrUrl || 'https://hackshen.com'}
                 size={256}
             />
+            
+            {/* 标题 */}
             <div className="qrtext">{HSHEN_CONF.qrText}</div>
+            
+            {/* 输入框 */}
             <div className="changeInput">
                 <textarea
                     className="url-text"
-                    type="text"
-                    ref={ref}
-                    onChange={getValue}/>
+                    ref={inputRef}
+                    onChange={handleInputChange}
+                    placeholder="输入自定义文本生成二维码"
+                />
             </div>
+            
+            {/* 每日一句 */}
             <div
                 className="message"
-                onClick={() => {
-                    dispatch({ type: 'getMsg' });
-                }}>{message}</div>
-            <div className={'tabLink'}>{tag}</div>
-            <div className="h-line"/>
+                onClick={fetchMessage}
+                style={{ 
+                    cursor: 'pointer',
+                    opacity: loading ? 0.6 : 1,
+                    color: error ? '#ff4d4f' : 'inherit'
+                }}
+            >
+                {loading ? '加载中...' : message || '点击获取每日一句'}
+            </div>
+            
+            {/* 快捷链接 */}
+            <div className="tabLink">
+                {CONFIG.quickLinks.map((link, index) => (
+                    <QuickLink key={index} link={link} index={index} />
+                ))}
+            </div>
+            
+            {/* 分隔线 */}
+            <div className="h-line" />
+            
+            {/* 作者信息 */}
             <div className="author">
-                <a href={HSHEN_CONF.blog} target="_blank">{HSHEN_CONF.author}</a>
+                <a 
+                    href={HSHEN_CONF.blog} 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    {HSHEN_CONF.author}
+                </a>
             </div>
         </React.Fragment>
     );

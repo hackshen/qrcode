@@ -30,6 +30,16 @@ export default defineConfig({
     source: {
         entry: {
             popup: './src/popup.js',
+            options: './src/options.js',
+        },
+    },
+    html: {
+        template: ({ entryName }) => {
+            const templates = {
+                popup: './src/popup.html',
+                options: './src/options.html',
+            };
+            return templates[entryName];
         },
     },
     tools: {
