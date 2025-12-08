@@ -420,46 +420,139 @@ function checkAndRecognizeCaptcha(img) {
     if (!img.src) return;
     
     // 检查是否正在识别或已识别过（使用图片元素本身，而不是 URL）
-    if (recognizingImages.has(img)) return;
+    if (recognizingImages.has(img)) {
+        console.log('[Captcha Auto Fill] ⏭️ 已在识别队列，跳过', img.src);
+        return;
+    }
     
-    // 检查图片尺寸
+    // 检查图片尺寸（仅在尺寸已知时过滤）
     const width = img.naturalWidth || img.width;
     const height = img.naturalHeight || img.height;
+    const sizeKnown = width > 0 && height > 0;
     
-    if (width > 500 || height > 200 || width < 30 || height < 20) return;
+    if (sizeKnown && (width > 800 || height > 400 || width < 10 || height < 10)) {
+        console.log('[Captcha Auto Fill] ⏭️ 尺寸不匹配', width, height, img.src);
+        return;
+    } else if (!sizeKnown) {
+        console.log('[Captcha Auto Fill] ℹ️ 尺寸未知，等待加载', width, height, img.src);
+    }
     
     // 标记为正在识别
     recognizingImages.add(img);
     
-    // 检查图片是否已加载完成
-    if (img.complete && img.naturalWidth > 0) {
+    const tryRecognize = () => {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        const known = w > 0 && h > 0;
+        
+        if (known && (w > 800 || h > 400 || w < 10 || h < 10)) {
+            console.log('[Captcha Auto Fill] ⏭️ 尺寸不匹配(延迟)', w, h, img.src);
+            recognizingImages.delete(img);
+            return;
+        }
+        
+        if (!known) {
+            console.log('[Captcha Auto Fill] ⚠️ 尺寸仍未知，放弃本次', w, h, img.src);
+            recognizingImages.delete(img);
+            return;
+        }
+        
         recognizeCaptcha(img);
+    };
+    
+    // 检查图片是否已加载完成
+    if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        tryRecognize();
     } else {
         let recognized = false;
         
         img.onload = () => {
             if (!recognized) {
                 recognized = true;
-                recognizeCaptcha(img);
+                tryRecognize();
             }
         };
         
         setTimeout(() => {
             if (!recognized) {
                 recognized = true;
-                recognizeCaptcha(img);
+                tryRecognize();
             }
         }, 500);
     }
 }
 
+// 将图片转换为 base64
+function imageToBase64(img) {
+    return new Promise((resolve, reject) => {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            
+            ctx.drawImage(img, 0, 0);
+            
+            // 转换为完整的 data URL (保留 data:image/png;base64, 前缀)
+            const base64 = canvas.toDataURL('image/png');
+            resolve(base64);
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// 统一获取图片的 base64，适配 data:/blob:/http(s) 源
+async function getImageBase64(img) {
+    const src = img.src || '';
+    
+    // 已经是 data URL，直接返回，避免重复转码
+    if (src.startsWith('data:image/')) {
+        return src;
+    }
+    
+    // blob URL：尝试 fetch 再转 base64
+    if (src.startsWith('blob:')) {
+        try {
+            const blob = await fetch(src).then(r => r.blob());
+            const reader = new FileReader();
+            const base64 = await new Promise((resolve, reject) => {
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            return base64;
+        } catch (error) {
+            console.warn('[Captcha Auto Fill] ⚠️ blob 转 base64 失败，回退 canvas', error);
+            return imageToBase64(img);
+        }
+    }
+    
+    // 默认：画布转码（需同源或允许 CORS）
+    return imageToBase64(img);
+}
+
 // 识别验证码
 async function recognizeCaptcha(img) {
     try {
-        const imageUrl = img.src;
-        console.log('[Captcha Auto Fill] 🔄 正在识别:', imageUrl);
+        console.log('[Captcha Auto Fill] 🔄 正在识别:', img.src);
         
-        const response = await fetch(`${captchaConfig.apiUrl}/recognize?url=${encodeURIComponent(imageUrl)}`);
+        // 将图片转换为 base64（兼容 data:/blob:/http 源）
+        const base64Data = await getImageBase64(img);
+        console.log('[Captcha Auto Fill] 📸 图片已转换为 base64，大小:', Math.round(base64Data.length / 1024), 'KB');
+        
+        // 发送 base64 数据到 OCR API
+        const response = await fetch(`${captchaConfig.apiUrl}/recognize`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                base64: base64Data
+            })
+        });
+        
         const data = await response.json();
         
         if (response.ok && data.success) {
