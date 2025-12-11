@@ -102,12 +102,15 @@ main {
     display: inline-block;
     width: 50px;
     height: 26px;
+    flex-shrink: 0;
 }
 
 .switch input {
     opacity: 0;
     width: 0;
     height: 0;
+    position: absolute;
+    z-index: -1;
 }
 
 .slider {
@@ -120,6 +123,7 @@ main {
     background-color: #ccc;
     transition: 0.4s;
     border-radius: 26px;
+    z-index: 1;
 }
 
 .slider:before {
@@ -132,6 +136,7 @@ main {
     background-color: white;
     transition: 0.4s;
     border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 input:checked + .slider {
@@ -140,6 +145,14 @@ input:checked + .slider {
 
 input:checked + .slider:before {
     transform: translateX(24px);
+}
+
+.slider:hover {
+    background-color: #b3b3b3;
+}
+
+input:checked + .slider:hover {
+    background-color: #5568d3;
 }
 
 /* Form Items */
