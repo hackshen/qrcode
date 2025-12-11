@@ -209,6 +209,37 @@ function App() {
                     <QuickLink key={index} link={link} index={index} />
                 ))}
             </div>
+
+            {/* 打开侧边栏按钮 */}
+            <div className="tabLink" style={{ marginTop: '10px' }}>
+                <a
+                    href="#"
+                    onClick={async (e) => {
+                        e.preventDefault();
+                        try {
+                            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                            if (tab) {
+                                const window = await chrome.windows.get(tab.windowId);
+                                await chrome.sidePanel.open({ windowId: window.id });
+                            }
+                        } catch (error) {
+                            console.error('❌ 打开侧边栏失败:', error);
+                        }
+                    }}
+                    style={{
+                        display: 'block',
+                        padding: '10px',
+                        background: '#667eea',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: '6px',
+                        textAlign: 'center',
+                        fontWeight: '500'
+                    }}
+                >
+                    🔧 打开侧边栏
+                </a>
+            </div>
             
             {/* 分隔线 */}
             <div className="h-line" />

@@ -6,7 +6,7 @@ import './options.css';
 const DEFAULT_CONFIG = {
     // 功能开关
     features: {
-        doubleCopyClick: true,
+        doubleCopyClick: false,
         passwordReveal: true,
         // globalErrorMonitor: false,
         // sourcemapMonitor: false,
@@ -53,8 +53,8 @@ const DEFAULT_CONFIG = {
     ],
     // OCR 验证码识别
     ocr: {
-        apiUrl: 'https://api.hackshen.com/ocr',
-        autoRecognize: false  // 自动识别页面验证码
+        apiUrl: 'https://npm.hackshen.com/ocr',
+        autoRecognize: true  // 自动识别页面验证码
     }
 };
 
@@ -71,7 +71,7 @@ function OptionsApp() {
     useEffect(() => {
         loadConfig();
         loadSavedData();
-        
+
         // 监听存储变化
         const listener = (changes, areaName) => {
             if (areaName === 'local') {
@@ -79,7 +79,7 @@ function OptionsApp() {
             }
         };
         chrome.storage.onChanged.addListener(listener);
-        
+
         return () => {
             chrome.storage.onChanged.removeListener(listener);
         };
@@ -90,7 +90,7 @@ function OptionsApp() {
         try {
             const result = await chrome.storage.sync.get('extensionConfig');
             // 合并默认配置，确保所有字段都存在
-            const loadedConfig = result.extensionConfig 
+            const loadedConfig = result.extensionConfig
                 ? { ...DEFAULT_CONFIG, ...result.extensionConfig, ocr: { ...DEFAULT_CONFIG.ocr, ...result.extensionConfig.ocr } }
                 : DEFAULT_CONFIG;
             setConfig(loadedConfig);
@@ -131,7 +131,7 @@ function OptionsApp() {
             await chrome.storage.sync.set({ extensionConfig: config });
             console.log('✅ 配置已保存:', config);
             showStatus('✅ 设置已保存！刷新页面后生效', 'success');
-            
+
             // 通知 content script
             const tabs = await chrome.tabs.query({});
             tabs.forEach(tab => {
@@ -185,7 +185,7 @@ function OptionsApp() {
             const newConfig = JSON.parse(JSON.stringify(prev));
             const keys = path.split('.');
             let current = newConfig;
-            
+
             // 确保路径上的所有父对象都存在
             for (let i = 0; i < keys.length - 1; i++) {
                 if (!current[keys[i]]) {
@@ -193,7 +193,7 @@ function OptionsApp() {
                 }
                 current = current[keys[i]];
             }
-            
+
             current[keys[keys.length - 1]] = value;
             return newConfig;
         });
@@ -299,8 +299,8 @@ function OptionsApp() {
                             <p className="hint">
                                 仅监控这些域名下的 JS 文件<br />
                                 格式: example.com（不含 http://）<br />
-                                当前配置: {config.sourcemapDomains.length === 0 ? 
-                                    <span style={{color: '#ff4d4f'}}>未配置（监控不会启动）</span> : 
+                                当前配置: {config.sourcemapDomains.length === 0 ?
+                                    <span style={{color: '#ff4d4f'}}>未配置（监控不会启动）</span> :
                                     <span style={{color: '#52c41a'}}>{config.sourcemapDomains.length} 个域名</span>
                                 }
                             </p>
@@ -452,22 +452,22 @@ function HttpRulesManager({ rules, onChange }) {
         reader.onload = (e) => {
             try {
                 const importedRules = JSON.parse(e.target.result);
-                
+
                 // 验证数据格式
                 if (!Array.isArray(importedRules)) {
                     throw new Error('导入的文件格式不正确');
                 }
-                
+
                 // 验证每条规则的必填字段
-                const isValid = importedRules.every(rule => 
-                    rule.name && rule.urlFilter && rule.headerType && 
+                const isValid = importedRules.every(rule =>
+                    rule.name && rule.urlFilter && rule.headerType &&
                     rule.headerName && rule.headerValue
                 );
-                
+
                 if (!isValid) {
                     throw new Error('规则数据不完整');
                 }
-                
+
                 // 确认导入
                 const confirmMsg = `确定要导入 ${importedRules.length} 条规则吗？\n这将替换当前所有规则！`;
                 if (confirm(confirmMsg)) {
@@ -483,17 +483,17 @@ function HttpRulesManager({ rules, onChange }) {
                 console.error('导入失败:', error);
                 alert(`❌ 导入失败：${error.message}`);
             }
-            
+
             // 清空文件输入
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         };
-        
+
         reader.onerror = () => {
             alert('❌ 文件读取失败');
         };
-        
+
         reader.readAsText(file);
     };
 
@@ -506,20 +506,20 @@ function HttpRulesManager({ rules, onChange }) {
         reader.onload = (e) => {
             try {
                 const importedRules = JSON.parse(e.target.result);
-                
+
                 if (!Array.isArray(importedRules)) {
                     throw new Error('导入的文件格式不正确');
                 }
-                
-                const isValid = importedRules.every(rule => 
-                    rule.name && rule.urlFilter && rule.headerType && 
+
+                const isValid = importedRules.every(rule =>
+                    rule.name && rule.urlFilter && rule.headerType &&
                     rule.headerName && rule.headerValue
                 );
-                
+
                 if (!isValid) {
                     throw new Error('规则数据不完整');
                 }
-                
+
                 const confirmMsg = `确定要合并导入 ${importedRules.length} 条规则吗？\n将追加到现有规则后面`;
                 if (confirm(confirmMsg)) {
                     const rulesWithNewIds = importedRules.map((rule, index) => ({
@@ -533,12 +533,12 @@ function HttpRulesManager({ rules, onChange }) {
                 console.error('合并导入失败:', error);
                 alert(`❌ 合并导入失败：${error.message}`);
             }
-            
+
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         };
-        
+
         reader.readAsText(file);
     };
 
@@ -594,7 +594,7 @@ function HttpRulesManager({ rules, onChange }) {
                 >
                     ➕ 添加新规则
                 </button>
-                
+
                 <button
                     className="btn btn-secondary"
                     onClick={handleExport}
@@ -603,7 +603,7 @@ function HttpRulesManager({ rules, onChange }) {
                 >
                     📥 导出规则 ({rules.length})
                 </button>
-                
+
                 <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
                     📤 替换导入
                     <input
@@ -614,7 +614,7 @@ function HttpRulesManager({ rules, onChange }) {
                         style={{ display: 'none' }}
                     />
                 </label>
-                
+
                 <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
                     ➕ 合并导入
                     <input

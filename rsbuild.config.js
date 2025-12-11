@@ -31,6 +31,7 @@ export default defineConfig({
         entry: {
             popup: './src/popup.js',
             options: './src/options.js',
+            sidepanel: './src/sidepanel.js',
         },
     },
     html: {
@@ -38,6 +39,7 @@ export default defineConfig({
             const templates = {
                 popup: './src/popup.html',
                 options: './src/options.html',
+                sidepanel: './src/sidepanel.html',
             };
             return templates[entryName];
         },

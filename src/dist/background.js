@@ -55,6 +55,14 @@ chrome.runtime.onInstalled.addListener(() => {
             id: item.id,
         });
     });
+
+    // 设置默认侧边栏路径
+    if (chrome.sidePanel) {
+        chrome.sidePanel.setOptions({
+            path: 'sidepanel.html',
+            enabled: true
+        });
+    }
 });
 
 // 处理右键菜单点击事件
@@ -65,6 +73,20 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     
     if (info.menuItemId === 'set_sessionid') {
         handleSetSessionId(tab);
+    }
+});
+
+// 添加快捷键命令来打开侧边栏
+chrome.commands.onCommand.addListener((command) => {
+    if (command === '_execute_action' && chrome.sidePanel) {
+        // 获取当前活动标签页
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]) {
+                chrome.windows.get(tabs[0].windowId, (window) => {
+                    chrome.sidePanel.open({ windowId: window.id });
+                });
+            }
+        });
     }
 });
 

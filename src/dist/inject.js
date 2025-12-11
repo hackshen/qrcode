@@ -18,8 +18,8 @@ let CONFIG = {
     },
     // OCR 验证码识别配置
     ocr: {
-        autoRecognize: false,
-        apiUrl: 'https://api.hackshen.com/ocr'
+        autoRecognize: true,
+        apiUrl: 'https://npm.hackshen.com/ocr'
     },
 };
 
@@ -113,9 +113,9 @@ const messageHandlers = {
                 const key = localStorage.key(i);
                 localStorageData[key] = localStorage.getItem(key);
             }
-            
+
             console.log('📤 发送页面 localStorage:', localStorageData);
-            sendResponse({ 
+            sendResponse({
                 success: true,
                 localStorage: localStorageData,
                 count: localStorage.length,
@@ -123,10 +123,10 @@ const messageHandlers = {
             });
         } catch (error) {
             console.error('❌ 读取 localStorage 失败:', error);
-            sendResponse({ 
+            sendResponse({
                 success: false,
                 localStorage: {},
-                error: error.message 
+                error: error.message
             });
         }
         return true;
@@ -149,16 +149,16 @@ const messageHandlers = {
                     setCount++;
                 }
             });
-            
-            sendResponse({ 
+
+            sendResponse({
                 success: true,
                 message: `已设置 ${setCount} 个键值对`
             });
         } catch (error) {
             console.error('❌ 设置 localStorage 失败:', error);
-            sendResponse({ 
+            sendResponse({
                 success: false,
-                error: error.message 
+                error: error.message
             });
         }
         return true;
@@ -168,10 +168,10 @@ const messageHandlers = {
 // 监听来自 background 或 popup 的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const { action } = request;
-    
+
     // 查找对应的处理器
     const handler = messageHandlers[action];
-    
+
     if (handler) {
         return handler(request, sendResponse);
     } else {
@@ -186,15 +186,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // 双击复制功能
 function initDoubleClickCopy() {
     if (!CONFIG.features.doubleCopyClick) return;
-    
+
     document.body.addEventListener('dblclick', async (e) => {
         const text = e.target.innerText?.trim();
         if (!text) return;
-        
+
         try {
             await navigator.clipboard.writeText(text);
             console.log('[双击复制] ✅', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
-            
+
             // 可选：显示复制成功提示
             // e.target.style.backgroundColor = '#90EE90';
             // setTimeout(() => e.target.style.backgroundColor = '', 300);
@@ -202,21 +202,21 @@ function initDoubleClickCopy() {
             console.error('[双击复制] ❌', error);
         }
     });
-    
+
     console.log('[双击复制] ✅ 已启用');
 }
 
 // 密码框显示功能
 function initPasswordReveal() {
     if (!CONFIG.features.passwordReveal) return;
-    
+
     document.body.addEventListener('click', (e) => {
         if (e.target.type === 'password') {
             e.target.type = 'text';
             console.log('[密码显示] ✅ 密码已显示');
         }
     });
-    
+
     console.log('[密码显示] ✅ 已启用');
 }
 
@@ -225,11 +225,11 @@ function initPasswordReveal() {
 async function init() {
     // 先加载配置
     await loadConfig();
-    
+
     // 等待 DOM 就绪
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initFeatures);
-        
+
     } else {
         initFeatures();
     }
@@ -239,7 +239,7 @@ function initFeatures() {
     // 初始化可选功能
     initSourceMapMonitor();
     // initGlobalErrorMonitor();  // 已禁用
-    
+
     // 等待 body 加载完成
     if (document.body) {
         initDoubleClickCopy();
@@ -252,7 +252,7 @@ function initFeatures() {
             initCaptchaAutoFill(); // 初始化验证码自动识别
         });
     }
-    
+
     console.log('[Content Script] 🎉 所有功能已初始化');
 }
 
@@ -262,7 +262,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         const oldConfig = CONFIG;
         CONFIG = { ...CONFIG, ...changes.extensionConfig.newValue };
         console.log('[Content Script] 🔄 配置已自动更新:', CONFIG);
-        
+
         // 检查 SourceMap 监控开关是否变化
         if (oldConfig.features.sourcemapMonitor !== CONFIG.features.sourcemapMonitor) {
             if (CONFIG.features.sourcemapMonitor) {
@@ -271,13 +271,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
                 console.log('[SourceMap] 🔄 开关已关闭，刷新页面后生效');
             }
         }
-        
+
         // 检查 OCR 配置是否变化
         if (CONFIG.ocr) {
             const wasEnabled = captchaConfig.autoRecognize;
             captchaConfig.autoRecognize = CONFIG.ocr.autoRecognize || false;
             captchaConfig.apiUrl = CONFIG.ocr.apiUrl || 'https://api.hackshen.com/ocr';
-            
+
             if (!wasEnabled && captchaConfig.autoRecognize) {
                 console.log('[Captcha Auto Fill] ✅ 自动识别已启用，启动监控');
                 startCaptchaMonitor();
@@ -304,7 +304,7 @@ const recognizingImages = new WeakSet(); // 正在识别的图片（避免重复
 function isCaptchaImage(img) {
     const parentClass = img.parentElement?.className || '';
     const imgClass = img.className || '';
-    
+
     // 检查图片自身类名或父容器
     return imgClass.includes('code-img') ||           // img.code-img
            imgClass.includes('captcha') ||            // img.captcha
@@ -335,26 +335,26 @@ const INPUT_SELECTORS = [
 // 启动验证码监控
 function startCaptchaMonitor() {
     if (!captchaConfig.autoRecognize) return;
-    
+
     // 初始扫描（立即执行，无延迟）
     scanCaptchaImages();
-    
+
     // 统一监听 body，通过 isCaptchaImage 过滤验证码图片
     const observer = new MutationObserver((mutations) => {
         if (!captchaConfig.autoRecognize) return;
-        
+
         let immediateCheckImages = []; // 需要立即检查的图片
-        
+
         for (const mutation of mutations) {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType !== 1) return; // 只处理元素节点
-                    
+
                     // 如果新增节点本身是验证码图片
                     if (node.tagName === 'IMG' && isCaptchaImage(node)) {
                         immediateCheckImages.push(node);
                     }
-                    
+
                     // 如果新增节点包含验证码图片（例如新增了一个容器）
                     if (node.querySelectorAll) {
                         const images = node.querySelectorAll('img');
@@ -377,13 +377,13 @@ function startCaptchaMonitor() {
                 }
             }
         }
-        
+
         // 立即处理验证码图片（0ms 延迟）
         if (immediateCheckImages.length > 0) {
             immediateCheckImages.forEach(img => checkAndRecognizeCaptcha(img));
         }
     });
-    
+
     // 监听整个 body
     observer.observe(document.body, {
         childList: true,
@@ -391,14 +391,14 @@ function startCaptchaMonitor() {
         attributes: true,
         attributeFilter: ['src']
     });
-    
+
     console.log('[Captcha Auto Fill] 👀 监控已启动');
 }
 
 // 扫描页面中的验证码图片
 function scanCaptchaImages() {
     const imageSet = new Set();
-    
+
     CAPTCHA_SELECTORS.forEach(selector => {
         try {
             const images = document.querySelectorAll(selector);
@@ -407,7 +407,7 @@ function scanCaptchaImages() {
             // 忽略无效的选择器
         }
     });
-    
+
     const uniqueImages = Array.from(imageSet);
     if (uniqueImages.length > 0) {
         console.log('[Captcha Auto Fill] 🔍 发现', uniqueImages.length, '个验证码图片');
@@ -418,61 +418,61 @@ function scanCaptchaImages() {
 // 检查并识别验证码
 function checkAndRecognizeCaptcha(img) {
     if (!img.src) return;
-    
+
     // 检查是否正在识别或已识别过（使用图片元素本身，而不是 URL）
     if (recognizingImages.has(img)) {
         console.log('[Captcha Auto Fill] ⏭️ 已在识别队列，跳过', img.src);
         return;
     }
-    
+
     // 检查图片尺寸（仅在尺寸已知时过滤）
     const width = img.naturalWidth || img.width;
     const height = img.naturalHeight || img.height;
     const sizeKnown = width > 0 && height > 0;
-    
+
     if (sizeKnown && (width > 800 || height > 400 || width < 10 || height < 10)) {
         console.log('[Captcha Auto Fill] ⏭️ 尺寸不匹配', width, height, img.src);
         return;
     } else if (!sizeKnown) {
         console.log('[Captcha Auto Fill] ℹ️ 尺寸未知，等待加载', width, height, img.src);
     }
-    
+
     // 标记为正在识别
     recognizingImages.add(img);
-    
+
     const tryRecognize = () => {
         const w = img.naturalWidth || img.width;
         const h = img.naturalHeight || img.height;
         const known = w > 0 && h > 0;
-        
+
         if (known && (w > 800 || h > 400 || w < 10 || h < 10)) {
             console.log('[Captcha Auto Fill] ⏭️ 尺寸不匹配(延迟)', w, h, img.src);
             recognizingImages.delete(img);
             return;
         }
-        
+
         if (!known) {
             console.log('[Captcha Auto Fill] ⚠️ 尺寸仍未知，放弃本次', w, h, img.src);
             recognizingImages.delete(img);
             return;
         }
-        
+
         recognizeCaptcha(img);
     };
-    
+
     // 检查图片是否已加载完成
     if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
         tryRecognize();
     } else {
         let recognized = false;
-        
+
         img.onload = () => {
             if (!recognized) {
                 recognized = true;
                 tryRecognize();
             }
         };
-        
+
         setTimeout(() => {
             if (!recognized) {
                 recognized = true;
@@ -488,12 +488,12 @@ function imageToBase64(img) {
         try {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            
+
             canvas.width = img.naturalWidth || img.width;
             canvas.height = img.naturalHeight || img.height;
-            
+
             ctx.drawImage(img, 0, 0);
-            
+
             // 转换为完整的 data URL (保留 data:image/png;base64, 前缀)
             const base64 = canvas.toDataURL('image/png');
             resolve(base64);
@@ -506,12 +506,12 @@ function imageToBase64(img) {
 // 统一获取图片的 base64，适配 data:/blob:/http(s) 源
 async function getImageBase64(img) {
     const src = img.src || '';
-    
+
     // 已经是 data URL，直接返回，避免重复转码
     if (src.startsWith('data:image/')) {
         return src;
     }
-    
+
     // blob URL：尝试 fetch 再转 base64
     if (src.startsWith('blob:')) {
         try {
@@ -528,7 +528,7 @@ async function getImageBase64(img) {
             return imageToBase64(img);
         }
     }
-    
+
     // 默认：画布转码（需同源或允许 CORS）
     return imageToBase64(img);
 }
@@ -537,11 +537,11 @@ async function getImageBase64(img) {
 async function recognizeCaptcha(img) {
     try {
         console.log('[Captcha Auto Fill] 🔄 正在识别:', img.src);
-        
+
         // 将图片转换为 base64（兼容 data:/blob:/http 源）
         const base64Data = await getImageBase64(img);
         console.log('[Captcha Auto Fill] 📸 图片已转换为 base64，大小:', Math.round(base64Data.length / 1024), 'KB');
-        
+
         // 发送 base64 数据到 OCR API
         const response = await fetch(`${captchaConfig.apiUrl}/recognize`, {
             method: 'POST',
@@ -552,15 +552,15 @@ async function recognizeCaptcha(img) {
                 base64: base64Data
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok && data.success) {
             const text = data.text;
             const confidence = data.confidence;
-            
+
             console.log('[Captcha Auto Fill] ✅ 识别成功:', text, '置信度:', confidence + '%');
-            
+
             const input = findNearbyInput(img);
             if (input) {
                 fillInput(input, text);
@@ -582,12 +582,12 @@ function findNearbyInput(img) {
         const input = document.getElementById(parent.htmlFor);
         if (input && input.tagName === 'INPUT') return input;
     }
-    
+
     for (const selector of INPUT_SELECTORS) {
         const input = document.querySelector(selector);
         if (input) return input;
     }
-    
+
     const form = img.closest('form');
     if (form) {
         const inputs = form.querySelectorAll('input[type="text"], input:not([type])');
@@ -596,7 +596,7 @@ function findNearbyInput(img) {
         }
         if (inputs.length > 0) return inputs[0];
     }
-    
+
     let current = img.parentElement;
     let depth = 0;
     while (current && depth < 5) {
@@ -611,7 +611,7 @@ function findNearbyInput(img) {
         current = current.parentElement;
         depth++;
     }
-    
+
     return null;
 }
 
@@ -621,20 +621,20 @@ function fillInput(input, text) {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     input.dispatchEvent(new Event('blur', { bubbles: true }));
-    
+
     console.log('[Captcha Auto Fill] 📝 已填充:', text);
 }
 
 // 初始化验证码自动识别
 function initCaptchaAutoFill() {
     if (!CONFIG?.ocr) return;
-    
+
     captchaConfig.autoRecognize = CONFIG.ocr.autoRecognize || false;
     captchaConfig.apiUrl = CONFIG.ocr.apiUrl || 'https://api.hackshen.com/ocr';
-    
+
     console.log('[Captcha Auto Fill] � 配置加载完成');
     console.log('[Captcha Auto Fill] 开关状态:', captchaConfig.autoRecognize ? '✅ 启用' : '⏸️  禁用');
-    
+
     if (captchaConfig.autoRecognize) {
         console.log('[Captcha Auto Fill] 🚀 启动监控');
         startCaptchaMonitor();
