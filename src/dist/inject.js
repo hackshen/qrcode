@@ -549,7 +549,7 @@ async function recognizeCaptcha(img) {
         }
 
         // 发送 base64 数据到 OCR API（使用 image 字段）
-        const response = await fetch(`${captchaConfig.apiUrl}/`, {
+        const response = await fetch(`${captchaConfig.apiUrl}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
