@@ -53,7 +53,7 @@ const DEFAULT_CONFIG = {
     ],
     // OCR 验证码识别
     ocr: {
-        apiUrl: 'https://npm.hackshen.com/ocr',
+        apiUrl: 'https://api.hackshen.com/ocr',
         autoRecognize: true  // 自动识别页面验证码
     }
 };

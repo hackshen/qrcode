@@ -539,27 +539,34 @@ async function recognizeCaptcha(img) {
         console.log('[Captcha Auto Fill] 🔄 正在识别:', img.src);
 
         // 将图片转换为 base64（兼容 data:/blob:/http 源）
-        const base64Data = await getImageBase64(img);
-        console.log('[Captcha Auto Fill] 📸 图片已转换为 base64，大小:', Math.round(base64Data.length / 1024), 'KB');
+        const base64DataUrl = await getImageBase64(img);
+        console.log('[Captcha Auto Fill] 📸 图片已转换为 base64，大小:', Math.round(base64DataUrl.length / 1024), 'KB');
 
-        // 发送 base64 数据到 OCR API
-        const response = await fetch(`${captchaConfig.apiUrl}/recognize`, {
+        // 从 data URL 中提取纯 base64 字符串（去掉 data:image/png;base64, 前缀）
+        let pureBase64 = base64DataUrl;
+        if (base64DataUrl.includes(',')) {
+            pureBase64 = base64DataUrl.split(',')[1];
+        }
+
+        // 发送 base64 数据到 OCR API（使用 image 字段）
+        const response = await fetch(`${captchaConfig.apiUrl}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                base64: base64Data
+                image: pureBase64
             })
         });
 
         const data = await response.json();
 
-        if (response.ok && data.success) {
-            const text = data.text;
-            const confidence = data.confidence;
+        // 适配新接口响应格式: { success: true, message: "OCR识别成功", data: { text: "验证码", probability: null } }
+        if (response.ok && data.success && data.data && data.data.text) {
+            const text = data.data.text;
+            const probability = data.data.probability;
 
-            console.log('[Captcha Auto Fill] ✅ 识别成功:', text, '置信度:', confidence + '%');
+            console.log('[Captcha Auto Fill] ✅ 识别成功:', text, probability ? '置信度: ' + probability + '%' : '');
 
             const input = findNearbyInput(img);
             if (input) {
@@ -568,7 +575,7 @@ async function recognizeCaptcha(img) {
                 console.log('[Captcha Auto Fill] ⚠️  未找到验证码输入框');
             }
         } else {
-            console.error('[Captcha Auto Fill] ❌ 识别失败:', data.error || '未知错误');
+            console.error('[Captcha Auto Fill] ❌ 识别失败:', data.message || '未知错误');
         }
     } catch (error) {
         console.error('[Captcha Auto Fill] ❌ 识别出错:', error);
