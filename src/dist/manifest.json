@@ -19,6 +19,7 @@
     "side_panel": {
         "default_path": "sidepanel.html"
     },
+    "devtools_page": "devtools.html",
     "content_scripts": [
         {
             "matches": [
@@ -52,7 +53,9 @@
         "declarativeNetRequestWithHostAccess",
         "webNavigation",
         "scripting",
-        "sidePanel"
+        "sidePanel",
+        "debugger",
+        "proxy"
     ],
     "host_permissions": [
         "*://*/*"

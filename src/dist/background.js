@@ -195,3 +195,247 @@ importScripts('http-rules-manager.js');
 
 // ============ SourceMap 自动注入 ============
 // importScripts('sourcemap-injector.js');
+
+// ============ 统一消息处理 ============
+// 处理来自 content script 和 DevTools Panel 的消息
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // API Mock 相关消息
+    if (request.action === 'getMockRules') {
+        // 获取 Mock 规则
+        chrome.storage.local.get(['mockRules', 'mockEnabled', 'interceptCount'], (result) => {
+            sendResponse({
+                mockRules: result.mockRules || [],
+                mockEnabled: result.mockEnabled || false,
+                interceptCount: result.interceptCount || 0
+            });
+        });
+        return true; // 保持消息通道开启
+    }
+    
+    if (request.action === 'saveMockRules') {
+        // 保存 Mock 规则
+        chrome.storage.local.set(request.data, () => {
+            sendResponse({ success: true });
+        });
+        return true; // 保持消息通道开启
+    }
+    
+    // 代理设置相关消息
+    if (request.action === 'setProxy') {
+        // 设置代理
+        handleSetProxy(request.config)
+            .then(() => {
+                sendResponse({ success: true });
+            })
+            .catch((error) => {
+                console.error('❌ 设置代理失败:', error);
+                sendResponse({ success: false, error: error.message });
+            });
+        return true; // 保持消息通道开启
+    }
+    
+    if (request.action === 'clearProxy') {
+        // 清除代理
+        chrome.proxy.settings.clear({}, () => {
+            sendResponse({ success: true });
+        });
+        return true;
+    }
+    
+    // 其他消息处理可以在这里添加
+    // 例如：来自 content script 的消息
+});
+
+// ============ 代理设置处理 ============
+async function handleSetProxy(config) {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log('🔧 开始设置代理:', {
+                enabled: config.enabled,
+                mode: config.mode,
+                currentProfile: config.currentProfile,
+                profilesCount: config.profiles?.length || 0
+            });
+
+            if (!config.enabled || config.mode === 'direct') {
+                console.log('🔧 清除代理设置（未启用或直连模式）');
+                chrome.proxy.settings.clear({}, () => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        console.log('✅ 代理已清除');
+                        resolve();
+                    }
+                });
+                return;
+            }
+
+            if (config.mode === 'system') {
+                chrome.proxy.settings.set({
+                    value: { mode: 'system' },
+                    scope: 'regular'
+                }, () => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        console.log('✅ 系统代理设置成功');
+                        resolve();
+                    }
+                });
+                return;
+            }
+
+            if (config.mode === 'fixed') {
+                console.log('🔧 固定代理模式，currentProfile:', config.currentProfile);
+                if (!config.currentProfile) {
+                    // 固定模式但没有选择代理，清除代理设置
+                    console.log('⚠️ 固定模式但未选择代理，清除代理设置');
+                    chrome.proxy.settings.clear({}, () => {
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                        } else {
+                            resolve();
+                        }
+                    });
+                    return;
+                }
+
+                const profile = config.profiles?.find(p => p.id === config.currentProfile);
+                if (!profile) {
+                    console.error('❌ 代理配置不存在，ID:', config.currentProfile);
+                    console.error('可用配置:', config.profiles?.map(p => ({ id: p.id, name: p.name })));
+                    reject(new Error('代理配置不存在'));
+                    return;
+                }
+
+                console.log('🔧 找到代理配置:', {
+                    id: profile.id,
+                    name: profile.name,
+                    scheme: profile.scheme,
+                    host: profile.host,
+                    port: profile.port
+                });
+
+                const proxyConfig = buildProxyConfig(profile);
+                console.log('🔧 构建的代理配置:', JSON.stringify(proxyConfig, null, 2));
+                
+                chrome.proxy.settings.set({
+                    value: proxyConfig,
+                    scope: 'regular'
+                }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('❌ 设置代理失败:', chrome.runtime.lastError);
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        console.log('✅ 代理设置成功:', proxyConfig);
+                        resolve();
+                    }
+                });
+                return;
+            }
+
+            if (config.mode === 'auto_switch') {
+                const pacScript = buildPACScript(config.rules);
+                chrome.proxy.settings.set({
+                    value: { 
+                        mode: 'pac_script', 
+                        pacScript: {
+                            data: pacScript
+                        }
+                    },
+                    scope: 'regular'
+                }, () => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve();
+                    }
+                });
+                return;
+            }
+
+            reject(new Error('未知的代理模式'));
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// 构建代理配置
+function buildProxyConfig(profile) {
+    console.log('🔧 构建代理配置，输入:', profile);
+    
+    if (!profile) {
+        throw new Error('代理配置不能为空');
+    }
+    
+    const scheme = (profile.scheme || 'http').toLowerCase().trim();
+    const host = (profile.host || '').trim();
+    const portStr = String(profile.port || '').trim();
+    const port = parseInt(portStr, 10);
+    
+    // 验证端口号
+    if (isNaN(port) || port < 1 || port > 65535) {
+        throw new Error(`无效的端口号: ${portStr}，范围应为 1-65535`);
+    }
+    
+    // 验证主机地址
+    if (!host) {
+        throw new Error('代理地址不能为空');
+    }
+
+    // Chrome proxy API 要求 scheme 必须是 'http', 'https', 'socks4', 'socks5'
+    let proxyScheme = scheme;
+    if (scheme === 'http' || scheme === 'https') {
+        proxyScheme = scheme;
+    } else if (scheme === 'socks4') {
+        proxyScheme = 'socks4';
+    } else if (scheme === 'socks5') {
+        proxyScheme = 'socks5';
+    } else {
+        throw new Error(`不支持的代理协议: ${scheme}，支持: http, https, socks4, socks5`);
+    }
+
+    const proxyConfig = {
+        mode: 'fixed_servers',
+        rules: {
+            singleProxy: {
+                scheme: proxyScheme,
+                host: host,
+                port: port  // 确保是数字类型
+            }
+        }
+    };
+    
+    console.log('🔧 构建的代理配置:', JSON.stringify(proxyConfig, null, 2));
+    return proxyConfig;
+}
+
+// 构建 PAC 脚本（用于自动切换）
+function buildPACScript(rules) {
+    if (!rules || rules.length === 0) {
+        return 'function FindProxyForURL(url, host) { return "DIRECT"; }';
+    }
+
+    const rulesCode = rules.map(rule => {
+        if (!rule.profile) return '';
+        const conditions = rule.conditions.map(c => {
+            if (c.type === 'hostContains') {
+                return `shExpMatch(host, "*${c.value}*")`;
+            } else if (c.type === 'urlMatches') {
+                return `shExpMatch(url, "${c.value}")`;
+            }
+            return 'false';
+        }).join(' || ');
+
+        if (!conditions) return '';
+        return `if (${conditions}) { return "PROXY ${rule.profile.host}:${rule.profile.port}"; }`;
+    }).filter(code => code).join('\n');
+
+    return `
+        function FindProxyForURL(url, host) {
+            ${rulesCode}
+            return "DIRECT";
+        }
+    `;
+}

@@ -491,6 +491,85 @@ footer {
 }
 
 
+/* Proxy Manager */
+.proxy-manager {
+    margin-top: 10px;
+}
+
+.proxy-profiles,
+.proxy-rules {
+    margin-top: 15px;
+}
+
+.profiles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.profile-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s;
+}
+
+.profile-item:hover {
+    background: #e9ecef;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-info h4 {
+    font-size: 15px;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.profile-detail {
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.profile-detail code {
+    background: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.profile-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #e6f7ff;
+    color: #1890ff;
+}
+
+.badge.active {
+    background: #52c41a;
+    color: white;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .container {
