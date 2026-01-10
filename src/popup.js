@@ -66,11 +66,11 @@ const scriptInject = async () => {
 const clearDnsCache = async () => {
     try {
         // 使用 Manifest V3 的 scripting API
-        const tab = await chrome.tabs.create({
-            url: 'chrome://net-internals',
-            active: false
+        const tab = await chrome.tabs.create({ 
+            url: 'chrome://net-internals', 
+            active: false 
         });
-
+        
         // 等待片刻让页面加载
         setTimeout(async () => {
             try {
@@ -78,9 +78,9 @@ const clearDnsCache = async () => {
                     target: { tabId: tab.id },
                     files: ['clear.js']
                 });
-
+                
                 await chrome.tabs.remove(tab.id);
-
+                
                 const currentTab = await getCurrentTab();
                 chrome.tabs.sendMessage(currentTab.id, { action: 'clear' });
             } catch (error) {
@@ -144,7 +144,7 @@ function App() {
             // 从配置读取 API 地址
             const config = await chrome.storage.sync.get('extensionConfig');
             const apiUrl = config.extensionConfig?.api?.message || HSHEN_CONF.api;
-
+            
             const response = await apiClient.get(apiUrl);
             const data = response.data;
             const msg = data?.[0]?.title || '暂无数据';
@@ -184,7 +184,7 @@ function App() {
         initPopup();
         fetchMessage();
     }, []);
-
+    
     return (
         <React.Fragment>
             {/* 二维码 */}
@@ -192,10 +192,10 @@ function App() {
                 value={qrUrl || 'https://hackshen.com'}
                 size={256}
             />
-
+            
             {/* 标题 */}
             <div className="qrtext">{HSHEN_CONF.qrText}</div>
-
+            
             {/* 输入框 */}
             <div className="changeInput">
                 <textarea
@@ -205,12 +205,12 @@ function App() {
                     placeholder="输入自定义文本生成二维码"
                 />
             </div>
-
+            
             {/* 每日一句 */}
             <div
                 className="message"
                 onClick={fetchMessage}
-                style={{
+                style={{ 
                     cursor: 'pointer',
                     opacity: loading ? 0.6 : 1,
                     color: error ? '#ff4d4f' : 'inherit'
@@ -218,7 +218,7 @@ function App() {
             >
                 {loading ? '加载中...' : message || '点击获取每日一句'}
             </div>
-
+            
             {/* 快捷链接 */}
             <div className="tabLink">
                 {CONFIG.quickLinks.map((link, index) => (
@@ -256,14 +256,14 @@ function App() {
                     🔧 打开侧边栏
                 </a>
             </div>
-
+            
             {/* 分隔线 */}
             <div className="h-line" />
-
+            
             {/* 作者信息 */}
             <div className="author">
-                <a
-                    href={HSHEN_CONF.blog}
+                <a 
+                    href={HSHEN_CONF.blog} 
                     target="_blank"
                     rel="noopener noreferrer"
                 >

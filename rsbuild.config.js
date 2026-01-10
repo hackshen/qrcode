@@ -60,6 +60,10 @@ export default defineConfig({
         },
         filenameHash: false,
         cleanDistPath: true,
+        sourceMap: {
+            js: 'hidden-source-map',  // 生成 source map 但不在代码中引用
+            css: 'hidden-source-map', // 生成 source map 但不在代码中引用
+        },
     },
     dev: {
         writeToDisk: (file) => !file.includes('.hot-update.'),

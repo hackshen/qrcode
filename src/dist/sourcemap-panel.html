@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SourceMap 注入</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #1890ff;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #d9d9d9;
+        }
+
+        .status-indicator.active {
+            background: #52c41a;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #40a9ff;
+        }
+
+        .btn-danger {
+            background: #ff4d4f;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff7875;
+        }
+
+        .btn:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+
+        .rules-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .rules-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .rule-item {
+            padding: 15px;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background: #fafafa;
+        }
+
+        .rule-item.enabled {
+            border-color: #52c41a;
+            background: #f6ffed;
+        }
+
+        .rule-name {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .rule-pattern {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .rule-sourcemap {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #1890ff;
+        }
+
+        .logs-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .logs-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .logs-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+
+        .log-entry.success {
+            color: #52c41a;
+        }
+
+        .log-entry.error {
+            color: #ff4d4f;
+        }
+
+        .log-entry.info {
+            color: #1890ff;
+        }
+
+        .log-entry.warning {
+            color: #faad14;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            flex: 1;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1890ff;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ SourceMap 注入工具</h1>
+            <p>使用 Chrome DevTools Protocol 为 JS 文件自动注入 SourceMap 响应头</p>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="statusText">未启动</span>
+                </div>
+                <div class="status-item">
+                    <span>拦截次数: <strong id="interceptCount">0</strong></span>
+                </div>
+                <div class="status-item">
+                    <span>注入次数: <strong id="injectCount">0</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <button class="btn btn-primary" id="startBtn">▶️ 启动注入</button>
+            <button class="btn btn-danger" id="stopBtn" disabled>⏹️ 停止注入</button>
+            <button class="btn" id="clearLogsBtn">🗑️ 清空日志</button>
+            <button class="btn" id="refreshRulesBtn">🔄 刷新规则</button>
+        </div>
+
+        <div class="rules-section">
+            <h2>📋 注入规则</h2>
+            <div id="rulesList">
+                <div class="empty-state">
+                    <p>暂无规则，请在设置页面添加</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="logs-section">
+            <h2>📝 运行日志</h2>
+            <div class="logs-container" id="logsContainer">
+                <div class="log-entry info">等待启动...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="sourcemap-panel.js"></script>
+</body>
+</html>
+
