@@ -67,6 +67,6 @@ export default defineConfig({
     },
     dev: {
         writeToDisk: (file) => !file.includes('.hot-update.'),
-        hmr: true,
+        hmr: false, // Chrome 扩展不支持 HMR
     },
 });

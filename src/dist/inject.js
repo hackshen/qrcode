@@ -1,26 +1,16 @@
 // ============ Content Script 入口 ============
 console.log('[Content Script] ✅ 已注入:', window.location.href);
 
-// 默认配置对象
-let CONFIG = {
-    cdn: {
-        jquery: 'https://libs.baidu.com/jquery/2.0.0/jquery.min.js',
-    },
-    api: {
-        message: 'https://api.hackshen.com/message',
-    },
-    // 功能开关
-    features: {
-        doubleCopyClick: true,      // 双击复制
-        passwordReveal: true,        // 密码框显示
-        // globalErrorMonitor: false,   // 全局错误监控
-        sourcemapMonitor: false,     // SourceMap 监控
-    },
-    // OCR 验证码识别配置
-    ocr: {
-        autoRecognize: true,
-        apiUrl: 'https://npm.hackshen.com/ocr'
-    },
+// 配置对象（从 chrome.storage 加载，已自动初始化）
+// 注意：完整配置定义在 src/dist/default-config.js
+let CONFIG = null;
+
+// Fallback 配置（仅在 storage 读取失败时使用）
+const FALLBACK_CONFIG = {
+    cdn: { jquery: 'https://libs.baidu.com/jquery/2.0.0/jquery.min.js' },
+    api: { message: 'https://api.hackshen.com/message' },
+    features: { doubleCopyClick: false, passwordReveal: true },
+    ocr: { autoRecognize: false, apiUrl: 'https://api.hackshen.com/ocr' },
 };
 
 // 从 storage 加载配置
@@ -28,11 +18,17 @@ async function loadConfig() {
     try {
         const result = await chrome.storage.sync.get('extensionConfig');
         if (result.extensionConfig) {
-            CONFIG = { ...CONFIG, ...result.extensionConfig };
-            console.log('[Content Script] 📋 配置已加载:', CONFIG);
+            CONFIG = result.extensionConfig;
+            // console.log('[Content Script] ✅ 配置已加载:', CONFIG);
+        } else {
+            // 使用 fallback 配置
+            console.warn('[Content Script] ⚠️ 配置不存在，使用 fallback');
+            CONFIG = FALLBACK_CONFIG;
         }
     } catch (error) {
-        console.error('[Content Script] ❌ 加载配置失败:', error);
+        console.error('[Content Script] ❌ 加载配置失败，使用 fallback:', error);
+        // 使用 fallback 配置
+        CONFIG = FALLBACK_CONFIG;
     }
 }
 
@@ -263,8 +259,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         CONFIG = { ...CONFIG, ...changes.extensionConfig.newValue };
         console.log('[Content Script] 🔄 配置已自动更新:', CONFIG);
 
-        // 检查 SourceMap 监控开关是否变化
-        if (oldConfig.features.sourcemapMonitor !== CONFIG.features.sourcemapMonitor) {
+        // 检查 SourceMap 监控开关是否变化（安全检查）
+        if (oldConfig?.features?.sourcemapMonitor !== CONFIG?.features?.sourcemapMonitor) {
             if (CONFIG.features.sourcemapMonitor) {
                 console.log('[SourceMap] 🔄 开关已开启，刷新页面后生效');
             } else {
@@ -274,14 +270,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
         // 检查 OCR 配置是否变化
         if (CONFIG.ocr) {
-            const wasEnabled = captchaConfig.autoRecognize;
-            captchaConfig.autoRecognize = CONFIG.ocr.autoRecognize || false;
-            captchaConfig.apiUrl = CONFIG.ocr.apiUrl || 'https://api.hackshen.com/ocr';
+            const wasEnabled = oldConfig?.ocr?.autoRecognize || false;
+            const isEnabled = CONFIG.ocr.autoRecognize || false;
 
-            if (!wasEnabled && captchaConfig.autoRecognize) {
+            if (!wasEnabled && isEnabled) {
                 console.log('[Captcha Auto Fill] ✅ 自动识别已启用，启动监控');
                 startCaptchaMonitor();
-            } else if (wasEnabled && !captchaConfig.autoRecognize) {
+            } else if (wasEnabled && !isEnabled) {
                 console.log('[Captcha Auto Fill] ⏸️  自动识别已禁用');
             }
         }
@@ -292,11 +287,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 init();
 
 // ============ 验证码自动识别功能 ============
-
-let captchaConfig = {
-    autoRecognize: false,
-    apiUrl: 'https://api.hackshen.com/ocr'
-};
 
 const recognizingImages = new WeakSet(); // 正在识别的图片（避免重复）
 
@@ -334,14 +324,14 @@ const INPUT_SELECTORS = [
 
 // 启动验证码监控
 function startCaptchaMonitor() {
-    if (!captchaConfig.autoRecognize) return;
+    if (!CONFIG?.ocr?.autoRecognize) return;
 
     // 初始扫描（立即执行，无延迟）
     scanCaptchaImages();
 
     // 统一监听 body，通过 isCaptchaImage 过滤验证码图片
     const observer = new MutationObserver((mutations) => {
-        if (!captchaConfig.autoRecognize) return;
+        if (!CONFIG?.ocr?.autoRecognize) return;
 
         let immediateCheckImages = []; // 需要立即检查的图片
 
@@ -549,7 +539,8 @@ async function recognizeCaptcha(img) {
         }
 
         // 发送 base64 数据到 OCR API（使用 image 字段）
-        const response = await fetch(`${captchaConfig.apiUrl}`, {
+        const apiUrl = CONFIG?.ocr?.apiUrl || 'https://api.hackshen.com/ocr';
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -636,13 +627,13 @@ function fillInput(input, text) {
 function initCaptchaAutoFill() {
     if (!CONFIG?.ocr) return;
 
-    captchaConfig.autoRecognize = CONFIG.ocr.autoRecognize || false;
-    captchaConfig.apiUrl = CONFIG.ocr.apiUrl || 'https://api.hackshen.com/ocr';
+    CONFIG.ocr.autoRecognize = CONFIG.ocr.autoRecognize || false;
+    const apiUrl = CONFIG.ocr.apiUrl || 'https://api.hackshen.com/ocr';
 
-    console.log('[Captcha Auto Fill] � 配置加载完成');
-    console.log('[Captcha Auto Fill] 开关状态:', captchaConfig.autoRecognize ? '✅ 启用' : '⏸️  禁用');
+    // console.log('[Captcha Auto Fill] � 配置加载完成');
+    console.log('[Captcha Auto Fill] 开关状态:', CONFIG.ocr.autoRecognize ? '✅ 启用' : '⏸️  禁用');
 
-    if (captchaConfig.autoRecognize) {
+    if (CONFIG.ocr.autoRecognize) {
         console.log('[Captcha Auto Fill] 🚀 启动监控');
         startCaptchaMonitor();
     }

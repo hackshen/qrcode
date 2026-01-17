@@ -23,10 +23,10 @@ apiClient.interceptors.response.use(
 const HSHEN_CONF = {
     author: CONFIG.author.name,
     blog: CONFIG.author.blog,
-    api: CONFIG.api.message,
     qrText: CONFIG.text.qrCode,
     optionsText: CONFIG.text.options,
     toolsUrl: CONFIG.author.toolsUrl,
+    // API 配置已移至 chrome.storage.sync，使用时从配置中读取
 };
 
 // ============ 工具函数 ============
@@ -141,9 +141,9 @@ function App() {
         setLoading(true);
         setError(null);
         try {
-            // 从配置读取 API 地址
+            // 从配置读取 API 地址（已自动初始化）
             const config = await chrome.storage.sync.get('extensionConfig');
-            const apiUrl = config.extensionConfig?.api?.message || HSHEN_CONF.api;
+            const apiUrl = config.extensionConfig?.api?.message || 'https://api.hackshen.com/message';
             
             const response = await apiClient.get(apiUrl);
             const data = response.data;

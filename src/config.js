@@ -1,6 +1,8 @@
 /**
- * 扩展配置文件
- * 集中管理所有域名、URL 和常量配置
+ * 扩展静态配置文件
+ * 仅包含不需要用户修改的静态配置
+ * 
+ * 注意：用户可配置项（如 API 地址、功能开关等）已移至 src/dist/default-config.js
  */
 
 const CONFIG = {
@@ -11,44 +13,11 @@ const CONFIG = {
         toolsUrl: 'https://tools.hackshen.com/',
     },
 
-    // API 配置
-    api: {
-        message: 'https://api.hackshen.com/message',
-    },
-
-    // CDN 配置
-    cdn: {
-        jquery: 'https://libs.baidu.com/jquery/2.0.0/jquery.min.js',
-    },
-
     // UI 文本配置
     text: {
         qrCode: 'Current qr code',
         options: 'Options',
     },
-
-    // Referer 修改规则（对应 declarativeNetRequest 规则）
-    refererRules: [
-        {
-            id: 1,
-            urlPattern: '*://statics.lotsmall.cn/*',
-            referer: 'https://wap.lotsmall.cn/',
-            description: 'Lotsmall 静态资源',
-        },
-        {
-            id: 2,
-            urlPattern: '*://p3-juejin.byteimg.com/*',
-            referer: 'https://juejin.cn/',
-            description: '掘金图片',
-        },
-        {
-            id: 3,
-            urlPattern: '*://statics.huangshan.com.cn/*',
-            referer: '*',
-            description: '黄山静态资源（CORS）',
-            headerType: 'Access-Control-Allow-Origin',
-        },
-    ],
 
     // 菜单配置
     contextMenus: {
@@ -93,6 +62,11 @@ const CONFIG = {
     storageKeys: {
         sessionid: 'sessionid',
     },
+
+    // ============ 以下配置已移至 src/dist/default-config.js ============
+    // api: { ... }          → 移至 default-config.js
+    // cdn: { ... }          → 移至 default-config.js
+    // refererRules: [ ... ] → 已废弃，使用 httpRules（在 default-config.js 中）
 };
 
 // 兼容不同的模块系统

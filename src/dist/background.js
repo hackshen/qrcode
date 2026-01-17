@@ -1,5 +1,8 @@
 // Manifest V3 Background Service Worker
 
+// 导入默认配置
+importScripts('default-config.js');
+
 // 配置对象
 const CONFIG = {
     contextMenus: {
@@ -40,7 +43,30 @@ function showAlert(tabId, message) {
 }
 
 // 创建右键菜单
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async (details) => {
+    console.log('🔧 扩展已安装/更新:', details.reason);
+    
+    // 初始化默认配置（首次安装或更新时）
+    if (details.reason === 'install' || details.reason === 'update') {
+        try {
+            // 检查是否已有配置
+            const result = await chrome.storage.sync.get('extensionConfig');
+            
+            if (!result.extensionConfig) {
+                // 首次安装，写入默认配置
+                await chrome.storage.sync.set({ extensionConfig: DEFAULT_EXTENSION_CONFIG });
+                console.log('✅ 默认配置已初始化:', DEFAULT_EXTENSION_CONFIG);
+            } else if (details.reason === 'update') {
+                // 更新时，合并新的默认配置（保留用户自定义的值）
+                const mergedConfig = mergeConfig(DEFAULT_EXTENSION_CONFIG, result.extensionConfig);
+                await chrome.storage.sync.set({ extensionConfig: mergedConfig });
+                console.log('✅ 配置已更新并合并:', mergedConfig);
+            }
+        } catch (error) {
+            console.error('❌ 初始化配置失败:', error);
+        }
+    }
+    
     // 创建父菜单
     chrome.contextMenus.create({
         title: CONFIG.contextMenus.parentTitle,
@@ -64,6 +90,25 @@ chrome.runtime.onInstalled.addListener(() => {
         });
     }
 });
+
+// 深度合并配置（保留用户自定义值，添加新的默认值）
+function mergeConfig(defaultConfig, userConfig) {
+    const merged = { ...defaultConfig };
+    
+    for (const key in userConfig) {
+        if (userConfig.hasOwnProperty(key)) {
+            if (typeof userConfig[key] === 'object' && !Array.isArray(userConfig[key]) && userConfig[key] !== null) {
+                // 递归合并对象
+                merged[key] = mergeConfig(defaultConfig[key] || {}, userConfig[key]);
+            } else {
+                // 保留用户的值
+                merged[key] = userConfig[key];
+            }
+        }
+    }
+    
+    return merged;
+}
 
 // 处理右键菜单点击事件
 chrome.contextMenus.onClicked.addListener((info, tab) => {
