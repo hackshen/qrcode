@@ -45,13 +45,13 @@ function showAlert(tabId, message) {
 // 创建右键菜单
 chrome.runtime.onInstalled.addListener(async (details) => {
     console.log('🔧 扩展已安装/更新:', details.reason);
-    
+
     // 初始化默认配置（首次安装或更新时）
     if (details.reason === 'install' || details.reason === 'update') {
         try {
             // 检查是否已有配置
             const result = await chrome.storage.sync.get('extensionConfig');
-            
+
             if (!result.extensionConfig) {
                 // 首次安装，写入默认配置
                 await chrome.storage.sync.set({ extensionConfig: DEFAULT_EXTENSION_CONFIG });
@@ -66,13 +66,13 @@ chrome.runtime.onInstalled.addListener(async (details) => {
             console.error('❌ 初始化配置失败:', error);
         }
     }
-    
+
     // 创建父菜单
     chrome.contextMenus.create({
         title: CONFIG.contextMenus.parentTitle,
         id: CONFIG.contextMenus.parentId,
     });
-    
+
     // 创建子菜单
     CONFIG.contextMenus.items.forEach(item => {
         chrome.contextMenus.create({
@@ -94,7 +94,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 // 深度合并配置（保留用户自定义值，添加新的默认值）
 function mergeConfig(defaultConfig, userConfig) {
     const merged = { ...defaultConfig };
-    
+
     for (const key in userConfig) {
         if (userConfig.hasOwnProperty(key)) {
             if (typeof userConfig[key] === 'object' && !Array.isArray(userConfig[key]) && userConfig[key] !== null) {
@@ -106,7 +106,7 @@ function mergeConfig(defaultConfig, userConfig) {
             }
         }
     }
-    
+
     return merged;
 }
 
@@ -115,9 +115,40 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === 'get_sessionid') {
         handleGetSessionId(tab);
     }
-    
+
     if (info.menuItemId === 'set_sessionid') {
         handleSetSessionId(tab);
+    }
+});
+
+// 用于跟踪每个窗口的 side panel 状态
+const sidePanelState = new Map();
+
+// 监听扩展图标点击事件，切换 side panel 的打开/关闭状态
+chrome.action.onClicked.addListener((tab) => {
+    if (chrome.sidePanel) {
+        const windowId = tab.windowId;
+        const isOpen = sidePanelState.get(windowId) || false;
+        console.log('isOpen', isOpen);
+        if (isOpen) {
+            // 关闭：禁用 side panel 然后立即重新启用（这会关闭它）
+            chrome.sidePanel.setOptions({
+                // tabId: tab.id,
+                enabled: false
+            }, () => {
+                console.log('关闭 side panel');
+                // 立即重新启用，以便下次可以打开
+                chrome.sidePanel.setOptions({
+                    // tabId: tab.id,
+                    enabled: true
+                });
+                sidePanelState.set(windowId, false);
+            });
+        } else {
+            // 打开 side panel
+            chrome.sidePanel.open({ windowId: windowId });
+            sidePanelState.set(windowId, true);
+        }
     }
 });
 
@@ -143,15 +174,15 @@ function handleGetSessionId(tab) {
             showAlert(tab.id, '❌ 无法访问页面数据，请刷新后重试');
             return;
         }
-        
+
         console.log('📦 收到页面 localStorage:', response);
-        
+
         // 2. 读取 Cookie
         chrome.cookies.getAll({ url: tab.url }, (cookies) => {
             const sessionCookie = cookies.find(item => item.name === CONFIG.cookieNames.sessionid);
             const sessionId = sessionCookie?.value || '';
             const tyAuthToken = response?.localStorage?.[CONFIG.localStorageKeys.tyAuthToken] || '';
-            
+
             // 3. 保存到扩展存储
             const dataToSave = {
                 [CONFIG.storageKeys.sessionid]: sessionId,
@@ -159,13 +190,13 @@ function handleGetSessionId(tab) {
                 savedTime: new Date().toISOString(),
                 savedUrl: tab.url
             };
-            
+
             chrome.storage.local.set(dataToSave, () => {
                 const message = [
                     sessionId ? `✅ SESSIONID: ${sessionId}` : '⚠️  SESSIONID 未找到',
                     tyAuthToken ? `✅ tyAuthToken: ${tyAuthToken}` : '⚠️  tyAuthToken 未找到'
                 ].join('\n');
-                
+
                 showAlert(tab.id, message);
                 console.log('✅ 已保存到扩展存储:', dataToSave);
             });
@@ -177,20 +208,20 @@ function handleGetSessionId(tab) {
 function handleSetSessionId(tab) {
     // 1. 读取保存的数据
     const keysToGet = [CONFIG.storageKeys.sessionid, CONFIG.storageKeys.tyAuthToken];
-    
+
     chrome.storage.local.get(keysToGet, (result) => {
         const sessionId = result[CONFIG.storageKeys.sessionid] || '';
         const tyAuthToken = result[CONFIG.storageKeys.tyAuthToken] || '';
-        
+
         if (!sessionId && !tyAuthToken) {
             showAlert(tab.id, '❌ 没有保存的数据，请先执行 GET SESSIONID');
             return;
         }
-        
+
         const { origin } = new URL(tab.url);
         let cookieSet = false;
         let localStorageSet = false;
-        
+
         // 2. 设置 Cookie
         if (sessionId) {
             chrome.cookies.set({
@@ -204,7 +235,7 @@ function handleSetSessionId(tab) {
         } else {
             tryComplete();
         }
-        
+
         // 3. 设置页面 localStorage
         if (tyAuthToken) {
             sendMessageToTab(tab.id, {
@@ -217,7 +248,7 @@ function handleSetSessionId(tab) {
         } else {
             tryComplete();
         }
-        
+
         // 4. 等待两个操作都完成后显示结果
         let completedCount = 0;
         function tryComplete() {
@@ -227,7 +258,7 @@ function handleSetSessionId(tab) {
                 if (sessionId) messages.push(cookieSet ? '✅ SESSIONID 已设置' : '❌ SESSIONID 设置失败');
                 if (tyAuthToken) messages.push(localStorageSet ? '✅ tyAuthToken 已设置' : '❌ tyAuthToken 设置失败');
                 messages.push('🔄 刷新页面生效');
-                
+
                 showAlert(tab.id, messages.join('\n'));
                 console.log('✅ 已恢复:', { sessionId: !!sessionId, tyAuthToken: !!tyAuthToken, cookieSet, localStorageSet });
             }
@@ -256,7 +287,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true; // 保持消息通道开启
     }
-    
+
     if (request.action === 'saveMockRules') {
         // 保存 Mock 规则
         chrome.storage.local.set(request.data, () => {
@@ -264,7 +295,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true; // 保持消息通道开启
     }
-    
+
     // 代理设置相关消息
     if (request.action === 'setProxy') {
         // 设置代理
@@ -278,7 +309,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
         return true; // 保持消息通道开启
     }
-    
+
     if (request.action === 'clearProxy') {
         // 清除代理
         chrome.proxy.settings.clear({}, () => {
@@ -286,7 +317,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         return true;
     }
-    
+
     // 其他消息处理可以在这里添加
     // 例如：来自 content script 的消息
 });
@@ -363,7 +394,7 @@ async function handleSetProxy(config) {
 
                 const proxyConfig = buildProxyConfig(profile);
                 console.log('🔧 构建的代理配置:', JSON.stringify(proxyConfig, null, 2));
-                
+
                 chrome.proxy.settings.set({
                     value: proxyConfig,
                     scope: 'regular'
@@ -382,8 +413,8 @@ async function handleSetProxy(config) {
             if (config.mode === 'auto_switch') {
                 const pacScript = buildPACScript(config.rules);
                 chrome.proxy.settings.set({
-                    value: { 
-                        mode: 'pac_script', 
+                    value: {
+                        mode: 'pac_script',
                         pacScript: {
                             data: pacScript
                         }
@@ -409,21 +440,21 @@ async function handleSetProxy(config) {
 // 构建代理配置
 function buildProxyConfig(profile) {
     console.log('🔧 构建代理配置，输入:', profile);
-    
+
     if (!profile) {
         throw new Error('代理配置不能为空');
     }
-    
+
     const scheme = (profile.scheme || 'http').toLowerCase().trim();
     const host = (profile.host || '').trim();
     const portStr = String(profile.port || '').trim();
     const port = parseInt(portStr, 10);
-    
+
     // 验证端口号
     if (isNaN(port) || port < 1 || port > 65535) {
         throw new Error(`无效的端口号: ${portStr}，范围应为 1-65535`);
     }
-    
+
     // 验证主机地址
     if (!host) {
         throw new Error('代理地址不能为空');
@@ -451,7 +482,7 @@ function buildProxyConfig(profile) {
             }
         }
     };
-    
+
     console.log('🔧 构建的代理配置:', JSON.stringify(proxyConfig, null, 2));
     return proxyConfig;
 }

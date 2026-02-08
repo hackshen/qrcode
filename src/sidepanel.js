@@ -2,7 +2,113 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import ReactDOM from 'react-dom/client';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import './sidepanel.css';
+import CONFIG from './config';
+
+// 配置 axios 实例
+const apiClient = axios.create();
+apiClient.interceptors.response.use(
+    (response) => response.data,
+    (error) => Promise.reject(error)
+);
+
+// ============ 工具函数 ============
+// 生成随机颜色
+const generateRandomColor = () => {
+    return '#' + Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
+};
+
+// 获取当前活动标签页
+const getCurrentTab = async () => {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tabs[0];
+};
+
+// ============ Chrome API 操作函数 ============
+const openDownload = () => {
+    chrome.downloads.showDefaultFolder();
+};
+
+const scriptInject = async () => {
+    try {
+        const tab = await getCurrentTab();
+        chrome.tabs.sendMessage(tab.id, { action: 'inject' }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('❌ jQuery 注入失败:', chrome.runtime.lastError);
+            } else {
+                console.log('✅ jQuery 注入成功:', response?.msg);
+            }
+        });
+    } catch (error) {
+        console.error('❌ 获取标签页失败:', error);
+    }
+};
+
+const clearDnsCache = async () => {
+    try {
+        const tab = await chrome.tabs.create({ 
+            url: 'chrome://net-internals', 
+            active: false 
+        });
+        
+        setTimeout(async () => {
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['clear.js']
+                });
+                
+                await chrome.tabs.remove(tab.id);
+                
+                const currentTab = await getCurrentTab();
+                chrome.tabs.sendMessage(currentTab.id, { action: 'clear' });
+            } catch (error) {
+                console.error('❌ DNS 缓存清除失败:', error);
+                await chrome.tabs.remove(tab.id);
+            }
+        }, 500);
+    } catch (error) {
+        console.error('❌ 创建标签页失败:', error);
+    }
+};
+
+// 映射配置中的 action 到实际函数
+const actionMap = {
+    clearDnsCache,
+    openDownload,
+    scriptInject,
+};
+
+// ============ QuickLink 组件 ============
+// 使用 React.memo 防止不必要的重新渲染
+const QuickLink = React.memo(({ link, index }) => {
+    const handleClick = (e) => {
+        if (link.action && actionMap[link.action]) {
+            e.preventDefault();
+            actionMap[link.action]();
+        }
+    };
+
+    const style = {
+        background: link.style?.background || generateRandomColor(),
+        ...link.style
+    };
+
+    return (
+        <a
+            key={index}
+            style={style}
+            target="_blank"
+            href={link.link}
+            onClick={handleClick}
+            rel="noopener noreferrer"
+            className="quick-link-item"
+        >
+            {link.name}
+        </a>
+    );
+});
 
 // ============ 主组件 ============
 function SidePanelApp() {
@@ -21,6 +127,11 @@ function SidePanelApp() {
     const [newAccount, setNewAccount] = useState({ account: '', password: '', remark: '' });
     const [searchQuery, setSearchQuery] = useState('');
     const searchInputRef = useRef(null);
+    
+    // 每日一句相关状态
+    const [message, setMessage] = useState('');
+    const [messageLoading, setMessageLoading] = useState(false);
+    const [messageError, setMessageError] = useState(null);
 
     // 状态徽标（用于标题右侧）
     const renderStatusBadge = (scope) => {
@@ -461,6 +572,7 @@ function SidePanelApp() {
         loadTabInfo();
         loadVersion();
         loadAccountList();
+        fetchMessage(); // 加载每日一句
 
         // 监听标签页更新事件
         const handleTabUpdate = (tabId, changeInfo, tab) => {
@@ -524,25 +636,98 @@ function SidePanelApp() {
         showStatus('✅ 已打开设置页面', 'success', 'actions');
     };
 
-    // 生成二维码
-    const handleGenerateQRCode = () => {
-        if (!qrText.trim()) {
-            showStatus('❌ 请输入要生成二维码的内容', 'error', 'qr');
-            return;
+    // 获取每日一句
+    const fetchMessage = async () => {
+        setMessageLoading(true);
+        setMessageError(null);
+        try {
+            const config = await chrome.storage.sync.get('extensionConfig');
+            const apiUrl = config.extensionConfig?.api?.message || 'https://api.hackshen.com/message';
+            
+            const response = await apiClient.get(apiUrl);
+            const data = response.data;
+            const msg = data?.[0]?.title || '暂无数据';
+            setMessage(msg);
+        } catch (err) {
+            console.error('❌ 获取消息失败:', err);
+            setMessageError('获取失败，点击重试');
+            setMessage('获取失败，点击重试');
+        } finally {
+            setMessageLoading(false);
         }
-        showStatus('✅ 二维码已生成', 'success', 'qr');
     };
 
-    // 处理输入框回车
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter') {
-            handleGenerateQRCode();
-        }
-    };
+
 
     return (
         <div className="sidepanel-container">
-            <h1>🔧 扩展工具</h1>
+            {/* <h1>🔧 扩展工具</h1> */}
+
+            {/* 二维码生成 */}
+            <div className="section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <h2>🔲 二维码</h2>
+                    {/* {renderStatusBadge('qr')} */}
+                </div>
+                <div className="qr-container">
+                    {qrText && (
+                        <div className="qr-code-wrapper">
+                            <QRCodeSVG
+                                value={qrText}
+                                size={'100%'}
+                                level="M"
+                            />
+                            <p className="qr-text">Current QR Code</p>
+                        </div>
+                    )}
+                    <textarea
+                        className="qr-input"
+                        placeholder="输入要生成二维码的内容"
+                        value={qrText}
+                        onChange={(e) => setQrText(e.target.value)}
+                    />
+                    
+                    {/* 每日一句 */}
+                    <div
+                        className="message"
+                        onClick={fetchMessage}
+                        style={{ 
+                            cursor: 'pointer',
+                            opacity: messageLoading ? 0.6 : 1,
+                            color: messageError ? '#ff4d4f' : 'inherit',
+                            padding: '5px',
+                            marginTop: '10px',
+                            background: '#f5f5f5',
+                            borderRadius: '6px',
+                            textAlign: 'center',
+                            fontSize: '12px',
+                            lineHeight: '1.6',
+                            transition: 'all 0.3s ease',
+                            userSelect: 'none',         /* 标准语法 */
+                            WebkitUserSelect: 'none', /* Safari */
+                            MozUserSelect: 'none', /* Firefox */
+                            msUserSelect: 'none', /* IE10+/Edge */
+                        }}
+                    >
+                        {messageLoading ? '加载中...' : message || '点击获取每日一句'}
+                    </div>
+                    
+                    {/* 快捷链接 */}
+                    <div 
+                        className="quick-links"
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: '10px',
+                            marginTop: '10px'
+                        }}
+                    >
+                        {CONFIG.quickLinks.map((link, index) => (
+                            <QuickLink key={index} link={link} index={index} />
+                        ))}
+                    </div>
+                </div>
+            </div>
 
             {/* 当前标签页信息 */}
             <div className="section">
@@ -845,41 +1030,6 @@ function SidePanelApp() {
                     </button>
                     <button className="btn btn-secondary" onClick={handleOpenOptions}>
                         ⚙️ 打开设置
-                    </button>
-                </div>
-            </div>
-
-            {/* 二维码生成 */}
-            <div className="section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                    <h2>🔲 二维码</h2>
-                    {renderStatusBadge('qr')}
-                </div>
-                <div className="qr-container">
-                    {qrText && (
-                        <div className="qr-code-wrapper">
-                            <QRCodeSVG
-                                value={qrText}
-                                size={200}
-                                level="M"
-                                includeMargin={true}
-                            />
-                            <p className="qr-text">{qrText}</p>
-                        </div>
-                    )}
-                    <input
-                        type="text"
-                        className="qr-input"
-                        placeholder="输入要生成二维码的内容"
-                        value={qrText}
-                        onChange={(e) => setQrText(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                    />
-                    <button 
-                        className="btn btn-primary btn-full" 
-                        onClick={handleGenerateQRCode}
-                    >
-                        生成二维码
                     </button>
                 </div>
             </div>

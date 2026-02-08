@@ -1,5 +1,5 @@
 {
-    "name": "Hshen",
+    "name": "DevKit Pro - 开发者工具箱",
     "version": "2.0.0",
     "manifest_version": 3,
     "description": "开发者工具集：",
@@ -8,9 +8,9 @@
         "128": "favicon.png"
     },
     "action": {
-        "default_title": "Title",
-        "default_icon": "favicon.png",
-        "default_popup": "popup.html"
+        "default_title": "DevKit Pro - 开发者工具箱",
+        "default_icon": "favicon.png"
+        // "default_popup": "popup.html"
     },
     "options_ui": {
         "page": "options.html",
@@ -37,8 +37,8 @@
     "commands": {
         "_execute_action": {
             "suggested_key": {
-                "default": "Alt+Shift+S",
-                "mac": "Command+Shift+S"
+                "default": "Alt+I",
+                "mac": "Ctrl+I"
             }
         }
     },
