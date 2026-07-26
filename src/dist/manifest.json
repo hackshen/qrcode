@@ -9,8 +9,8 @@
     },
     "action": {
         "default_title": "DevKit Pro - 开发者工具箱",
-        "default_icon": "favicon.png"
-        // "default_popup": "popup.html"
+        "default_icon": "favicon.png",
+        "default_popup": "popup.html"
     },
     "options_ui": {
         "page": "options.html",

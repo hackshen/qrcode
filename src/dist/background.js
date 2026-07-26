@@ -121,50 +121,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     }
 });
 
-// 用于跟踪每个窗口的 side panel 状态
-const sidePanelState = new Map();
-
-// 监听扩展图标点击事件，切换 side panel 的打开/关闭状态
-chrome.action.onClicked.addListener((tab) => {
-    if (chrome.sidePanel) {
-        const windowId = tab.windowId;
-        const isOpen = sidePanelState.get(windowId) || false;
-        console.log('isOpen', isOpen);
-        if (isOpen) {
-            // 关闭：禁用 side panel 然后立即重新启用（这会关闭它）
-            chrome.sidePanel.setOptions({
-                // tabId: tab.id,
-                enabled: false
-            }, () => {
-                console.log('关闭 side panel');
-                // 立即重新启用，以便下次可以打开
-                chrome.sidePanel.setOptions({
-                    // tabId: tab.id,
-                    enabled: true
-                });
-                sidePanelState.set(windowId, false);
-            });
-        } else {
-            // 打开 side panel
-            chrome.sidePanel.open({ windowId: windowId });
-            sidePanelState.set(windowId, true);
-        }
-    }
-});
-
-// 添加快捷键命令来打开侧边栏
-chrome.commands.onCommand.addListener((command) => {
-    if (command === '_execute_action' && chrome.sidePanel) {
-        // 获取当前活动标签页
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-                chrome.windows.get(tabs[0].windowId, (window) => {
-                    chrome.sidePanel.open({ windowId: window.id });
-                });
-            }
-        });
-    }
-});
+// 点击扩展图标时，由 manifest 中声明的 default_popup (popup.html) 直接弹出面板，
+// 因此此处无需再监听 action.onClicked / commands 来打开侧边栏。
 
 // 处理获取 SESSIONID 逻辑
 function handleGetSessionId(tab) {
