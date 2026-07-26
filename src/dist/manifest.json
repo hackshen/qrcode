@@ -26,7 +26,8 @@
                 "*://*/*"
             ],
             "js": [
-                "inject.js"
+                "inject.js",
+                "auto-login.js"
             ],
             "run_at": "document_start"
         }

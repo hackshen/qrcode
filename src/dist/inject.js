@@ -623,6 +623,9 @@ function fillInput(input, text) {
     console.log('[Captcha Auto Fill] 📝 已填充:', text);
 }
 
+// 暴露给 auto-login.js 复用（受控组件兼容填充：设 value + dispatch input/change/blur）
+window.__devkitFillInput = fillInput;
+
 // 初始化验证码自动识别
 function initCaptchaAutoFill() {
     if (!CONFIG?.ocr) return;
