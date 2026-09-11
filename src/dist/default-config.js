@@ -9,6 +9,7 @@ const DEFAULT_EXTENSION_CONFIG = {
         doubleCopyClick: false,
         passwordReveal: true,
         autoLogin: true,
+        jsonViewer: true,
     },
     // Auto-Login 总开关由 features.autoLogin 控制；此处控制是否在所有页面显示悬浮球
     autoLogin: {

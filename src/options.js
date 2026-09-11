@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = {
         doubleCopyClick: false,
         passwordReveal: true,
         autoLogin: true,
+        jsonViewer: true,
         // globalErrorMonitor: false,
         // sourcemapMonitor: false,
     },
@@ -250,6 +251,12 @@ function OptionsApp() {
                             description="点击密码框自动显示密码内容"
                             checked={config.features.passwordReveal}
                             onChange={(checked) => updateConfig('features.passwordReveal', checked)}
+                        />
+                        <OptionItem
+                            title="JSON 高亮"
+                            description="自动格式化并高亮 JSON 页面，支持折叠、行号、时间戳头部与 Ctrl-F 搜索（需刷新页面生效）"
+                            checked={config.features.jsonViewer !== false}
+                            onChange={(checked) => updateConfig('features.jsonViewer', checked)}
                         />
                         {/* <OptionItem
                             title="全局错误监控"

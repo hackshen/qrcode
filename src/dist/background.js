@@ -276,6 +276,51 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    // JSON Viewer 懒加载 CodeMirror（content script 同隔离世界，不受页面 CSP 影响）
+    if (request.action === 'jsonViewerLoadAssets') {
+        const tabId = sender.tab && sender.tab.id;
+        if (!tabId) {
+            sendResponse({ success: false, error: 'no tab id' });
+            return;
+        }
+        (async () => {
+            try {
+                // 顺序执行：核心 → 模式 → 折叠 → 搜索（依赖前者注入的 CodeMirror 全局）
+                await chrome.scripting.executeScript({
+                    target: { tabId },
+                    files: [
+                        'vendor/codemirror/codemirror.js',
+                        'vendor/codemirror/mode/javascript/javascript.js',
+                        'vendor/codemirror/addon/fold/foldcode.js',
+                        'vendor/codemirror/addon/fold/foldgutter.js',
+                        'vendor/codemirror/addon/fold/brace-fold.js',
+                        'vendor/codemirror/addon/dialog/dialog.js',
+                        'vendor/codemirror/addon/scroll/annotatescrollbar.js',
+                        'vendor/codemirror/addon/search/searchcursor.js',
+                        'vendor/codemirror/addon/search/search.js',
+                        'vendor/codemirror/addon/search/matchesonscrollbar.js',
+                    ],
+                });
+                await chrome.scripting.insertCSS({
+                    target: { tabId },
+                    files: [
+                        'vendor/codemirror/codemirror.css',
+                        'vendor/codemirror/theme/coy.css',
+                        'vendor/codemirror/addon/fold/foldgutter.css',
+                        'vendor/codemirror/addon/dialog/dialog.css',
+                        'vendor/codemirror/addon/search/matchesonscrollbar.css',
+                        'json-viewer.css',
+                    ],
+                });
+                sendResponse({ success: true });
+            } catch (error) {
+                console.error('❌ JSON Viewer 资源注入失败:', error);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
+        return true; // 保持消息通道开启
+    }
+
     // 其他消息处理可以在这里添加
     // 例如：来自 content script 的消息
 });

@@ -27,7 +27,8 @@
             ],
             "js": [
                 "inject.js",
-                "auto-login.js"
+                "auto-login.js",
+                "json-viewer.js"
             ],
             "run_at": "document_start"
         }

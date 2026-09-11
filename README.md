@@ -10,6 +10,7 @@ Chrome 浏览器扩展 - 二维码生成 & 开发工具集
 
 ### 核心功能
 - 🔲 **二维码生成** - 一键生成当前页面或自定义文本的二维码
+- 🌈 **JSON 高亮** - 自动格式化并高亮 JSON 页面（折叠/行号/时间戳/搜索，可在设置中开关）
 - 🎣 **每日毒鸡汤** - 点击刷新，来自 api.hackshen.com
 - 🔧 **开发工具集** - DNS缓存清除、jQuery注入、文件下载
 - 🔐 **Cookie 管理** - 右键菜单快速获取/设置 SESSIONID
@@ -42,6 +43,15 @@ npm run build
 - **Manifest V3** - Chrome 扩展最新标准
 
 ## 🎯 最近更新
+
+**JSON 高亮集成**
+
+- ✅ 移植 json-viewer 核心渲染：JSON/JSONP 页面自动格式化 + CodeMirror 高亮（coy 主题）
+- ✅ 折叠、行号、时间戳头部、可点击 URL、raw 切换、Ctrl-F 搜索、400KB 超大保护
+- ✅ CodeMirror 懒加载（仅 JSON 页面加载，经 background scripting 注入，不受页面 CSP 影响）
+- ✅ 设置页新增「JSON 高亮」总开关（默认开启）
+
+详见 [JSON_VIEWER.md](./JSON_VIEWER.md)
 
 **v2.1.0 (2025-01-17) - 配置自动初始化** 🎉
 
