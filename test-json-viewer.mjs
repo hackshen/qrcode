@@ -5,7 +5,7 @@ import vm from 'vm';
 
 const source = fs.readFileSync('build/json-viewer.js', 'utf8');
 
-function makeStubs({ json, dark = false, pref = null }) {
+function makeStubs({ json }) {
     const pre = {
         nodeName: 'PRE', textContent: json, hidden: false,
         setAttribute() {}, getAttribute() { return null; },
@@ -42,14 +42,13 @@ function makeStubs({ json, dark = false, pref = null }) {
     const chromeStub = {
         storage: {
             sync: { get: async () => ({ extensionConfig: { features: { jsonViewer: true } } }) },
-            local: { get: async () => ({ jsonViewerTheme: pref }), set: async () => {} },
+            local: { get: async () => ({}), set: async () => {} },
         },
         runtime: { getURL: (p) => '/' + p, sendMessage: (msg, cb) => cb({ success: true }) },
     };
 
     const window = {
         location: { href: 'https://api.test.com/data' },
-        matchMedia: () => ({ matches: dark }),
     };
 
     const ctx = {
@@ -88,17 +87,7 @@ async function run(scenario) {
     if (!nameLine.startsWith('  "name"')) throw new Error('缩进错误');
 }
 
-// ============ 场景 2：深色 monokai ============
-{
-    const { cmCalls, pre } = await run({
-        json: '{"dark":true}', dark: true,
-    });
-    const opts = cmCalls[0];
-    console.log('✅ [深色] 主题 =', opts.theme, '| pre.hidden =', pre.hidden);
-    if (opts.theme !== 'monokai') throw new Error('深色主题应为 monokai');
-}
-
-// ============ 场景 3：解析失败（正则通过但 JSON.parse 挂） ============
+// ============ 场景 2：解析失败（正则通过但 JSON.parse 挂） ============
 {
     const { cmCalls, bodyChildren, pre } = await run({
         json: '{"name":"hshen",}', // 尾逗号：过正则、parse 失败
@@ -111,13 +100,6 @@ async function run(scenario) {
         throw new Error('应显示红色解析失败提示条');
     }
     if (pre.hidden) throw new Error('解析失败应显示原文');
-}
-
-// ============ 场景 4：记忆的主题偏好（pref=dark） ============
-{
-    const { cmCalls } = await run({ json: '{"saved":true}', pref: 'dark' });
-    console.log('✅ [记忆偏好] 主题 =', cmCalls[0].theme);
-    if (cmCalls[0].theme !== 'monokai') throw new Error('记忆偏好 dark 应渲染 monokai');
 }
 
 console.log('\n🎉 全部通过');

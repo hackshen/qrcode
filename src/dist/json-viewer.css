@@ -128,28 +128,6 @@ div.CodeMirror-selected {
   line-height: 1.5em;
 }
 
-/* --- 主题按钮（文字字符，用 color 不用 fill） --- */
-.extras .icon.theme {
-  color: #555;
-}
-
-body.json-viewer-dark .extras .icon.theme {
-  color: #e8e8e8;
-}
-
-/* --- 深色模式（monokai，页面工具条可切换，默认跟随系统） --- */
-body.json-viewer-dark .extras .icon svg {
-  fill: #e8e8e8;
-}
-
-body.json-viewer-dark .extras .icon:hover {
-  background-color: #666;
-}
-
-body.json-viewer-dark .extras.auto-highlight-off .icon {
-  background-color: #666;
-}
-
 /* --- 超大 JSON 警告条（viewer-alert.scss 编译） --- */
 .json-viewer-alert {
   -webkit-user-select: none;

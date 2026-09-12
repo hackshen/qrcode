@@ -7,7 +7,7 @@
 
 浏览任意返回 JSON/JSONP 的接口时，自动格式化并以 CodeMirror（coy 主题）高亮渲染：
 
-- ✅ 语法高亮（浅色 coy / 深色 monokai，跟随系统 prefers-color-scheme 自动切换）
+- ✅ 语法高亮（coy 主题）
 - ✅ 节点折叠 / 展开全部（工具条按钮 + fold gutter）
 - ✅ 行号
 - ✅ 时间头部（`// YYYY-MM-DD HH:mm:ss` + 请求 URL，前 3 行；按需求从紧凑时间戳改为可读时间）
@@ -20,7 +20,7 @@
 - ✅ `window.json` 暴露（控制台直接查看解析结果）
 - ✅ 大数精度保护（超过 `Number.MAX_VALUE` 的数字不丢精度）
 - ✅ JSONP / `text/html` 响应容错（`while(1);` 前缀剥离、文本节点转 pre）
-- ✅ 本地文件支持（manifest 匹配 `file://*/*`，需在扩展详情开启「允许访问文件网址」）
+- ✅ 本地文件支持（manifest 匹配 `<all_urls>`，需在扩展详情开启「允许访问文件网址」；注意 `file://*/*` 是无效写法，file 协议 host 为空，须 `<all_urls>` 或 `file:///*`）
 - ✅ 总开关：设置页 → 功能开关 → JSON 高亮（`features.jsonViewer`，默认开，改动需刷新页面）
 
 ## 设计决策（讨论共识）
@@ -28,7 +28,7 @@
 | 决策点 | 结论 | 备注 |
 |---|---|---|
 | 移植范围 | 仅核心渲染链路（~1.1k 行），不搬 omnibox/scratch pad/options 页/主题系统 | |
-| 主题 | coy（浅色）；深色模式自动切 monokai（后续补强） | 两套主题 css 均常驻 insertCSS，按 `cm-s-*` 类名生效 |
+| 主题 | coy（深色模式与页面主题切换做过后按用户要求移除） | |
 | 开关粒度 | 硬编码全开 + 一个总开关 | 不做子项开关 |
 | CodeMirror 引入 | vendor 预构建 UMD + **懒加载** | 非常关键，见下文 |
 | 附带功能 | raw 切换/展开全部/可点击 URL/行号/搜索 全保留 | |
@@ -37,11 +37,11 @@
 
 ### 二轮补强（用户确认方案）
 
-- ✅ 深色模式：`matchMedia('prefers-color-scheme: dark')` → monokai + `body.json-viewer-dark`（图标/悬停同步换色）
 - ✅ 复制按钮：Clipboard API + execCommand 降级，复制格式化文本（不含头部），成功后 ✓ 反馈 1s
 - ✅ 解析失败提示条：正则通过但 `JSON.parse` 失败时红色横幅 + 原文
-- ✅ 本地文件：manifest 增匹配 `file://*/*`
+- ✅ 本地文件：manifest 改用 `<all_urls>` 覆盖 file://（`file://*/*` 无效，file 协议无 host）
 - ❌ Key 路径复制（缓做）、开关实时生效（不做）、仓库旧债清理（另开 session）
+- ➖ 深色模式与页面主题切换：已实现后按用户要求移除
 
 ### 关键技术点：为什么 CodeMirror 要懒加载 + 走 background
 
@@ -78,7 +78,7 @@ contentExtractor（大数 wrapNumbers 保精度）→ prependHeader → CodeMirr
 |---|---|
 | `src/dist/json-viewer.js` | 核心：检测/提取/格式化/渲染/工具条/启动流程（经典脚本 IIFE，无构建依赖） |
 | `src/dist/json-viewer.css` | 默认主题规则（现仅兜底）+ viewer/editor 自定义样式 + 字体 |
-| `src/dist/vendor/codemirror/` | CM 5.65.21：核心、javascript 模式、fold/dialog/search/scroll addon、theme/coy.css、theme/monokai.css，共 16 个文件 |
+| `src/dist/vendor/codemirror/` | CM 5.65.21：核心、javascript 模式、fold/dialog/search/scroll addon、theme/coy.css，共 15 个文件 |
 | `test-json-viewer.mjs` | 冒烟测试（stub DOM/chrome/CM，`node test-json-viewer.mjs`） |
 
 ### 修改
@@ -97,7 +97,7 @@ contentExtractor（大数 wrapNumbers 保精度）→ prependHeader → CodeMirr
 |---|---|
 | 字体/行距/工具条样式 | `src/dist/json-viewer.css` 末段 |
 | 超大上限、折叠、tab 宽度等行为 | `src/dist/json-viewer.js` 顶部 `INTERNAL_OPTIONS` |
-| 换主题 | `theme: 'coy'`/启动处的深色判断改，或从 json-viewer 仓库 `extension/themes/` copy 对应 css 到 `vendor/codemirror/theme/` + background.js insertCSS 列表加一行 |
+| 换主题 | 从 json-viewer 仓库 `extension/themes/` copy 对应 css 到 `vendor/codemirror/theme/`，改 `INTERNAL_OPTIONS.theme`，background.js insertCSS 列表加一行 |
 | 开关默认值 | `default-config.js` 与 `options.js` 两处 `DEFAULT_CONFIG.features.jsonViewer` |
 
 改完 `npm run build`，`chrome://extensions` Reload。

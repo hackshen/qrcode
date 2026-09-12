@@ -306,7 +306,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     files: [
                         'vendor/codemirror/codemirror.css',
                         'vendor/codemirror/theme/coy.css',
-                        'vendor/codemirror/theme/monokai.css',
                         'vendor/codemirror/addon/fold/foldgutter.css',
                         'vendor/codemirror/addon/dialog/dialog.css',
                         'vendor/codemirror/addon/search/matchesonscrollbar.css',

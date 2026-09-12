@@ -23,8 +23,7 @@
     "content_scripts": [
         {
             "matches": [
-                "*://*/*",
-                "file://*/*"
+                "<all_urls>"
             ],
             "js": [
                 "inject.js",
