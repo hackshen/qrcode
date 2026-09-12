@@ -74,6 +74,37 @@
         return isJSON(extractJSON(jsonStr));
     }
 
+    // NDJSON/JSONL：每非空行都是独立合法 JSON（至少 2 行），整体作为数组渲染
+    function isNDJSON(text) {
+        if (!text || text.indexOf('\n') < 0) return false;
+        var lines = text.split('\n');
+        var count = 0;
+        for (var i = 0; i < lines.length; i++) {
+            var l = lines[i].trim();
+            if (!l) continue;
+            count++;
+            try { JSON.parse(l); } catch (e) { return false; }
+        }
+        return count >= 2;
+    }
+
+    // 取真实源文本：常规/JSONP 原样；NDJSON 包装成数组（tulios 的宽松正则会放行多行文档，
+    // 故以 JSON.parse 失败作为 NDJSON 分流条件）
+    function getSourceText(pre) {
+        var raw = pre.textContent;
+        try {
+            JSON.parse(extractJSON(raw));
+            return raw;
+        } catch (e) { /* 落到 NDJSON 判断 */ }
+        if (isNDJSON(raw)) {
+            var entries = raw.split('\n')
+                .map(function (l) { return l.trim(); })
+                .filter(function (l) { return l; });
+            return '[' + entries.join(',\n') + ']';
+        }
+        return raw;
+    }
+
     var bodyModified = false;
 
     function allTextNodes(nodes) {
@@ -292,7 +323,7 @@
     function contentExtractor(pre, options) {
         return new Promise(function (resolve, reject) {
             try {
-                var rawJsonText = pre.textContent;
+                var rawJsonText = getSourceText(pre);
                 var jsonExtracted = extractJSON(rawJsonText);
                 var wrappedText = wrapNumbers(jsonExtracted);
 
@@ -335,11 +366,13 @@
 
     Highlighter.prototype = {
         highlight: function () {
+            this.linesCache = this.text.split('\n'); // 只读文本，路径/预览共用
             this.editor = CodeMirror(document.body, this.getEditorOptions());
             this.preventDefaultSearch();
             if (this.isReadOnly()) this.getDOMEditor().className += ' read-only';
             this.bindRenderLine();
             this.bindMousedown();
+            this.bindPathTooltip();
             this.editor.refresh();
             this.editor.focus();
         },
@@ -421,6 +454,251 @@
             return text.replace(/^"+/, '').replace(/"+$/, '');
         },
 
+        // ============ Key 路径提示与复制 + 智能值预览 ============
+        // 基于 jsl-format 的确定性输出（一行一元素）做栈式行扫描：
+        // 属性行 "key": { → 压栈；裸 {/[ 行 → 数组元素计数；}/] 行 → 出栈
+        bindPathTooltip: function () {
+            var self = this;
+            var lines = this.linesCache || this.text.split('\n'); // 只读文本，缓存安全
+            var tip = null;
+            var showTimer = null;
+            var hideTimer = null;
+            var KEY_LINE = /^"((?:[^"\\]|\\.)*)"\s*:\s*/;
+            var OPEN_TAIL = /^[{[][,]?\s*$/;
+            var CLOSE_LINE = /^[}\]]/;
+
+            function fmtKey(key) {
+                return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)
+                    ? '.' + key
+                    : '[' + JSON.stringify(key) + ']';
+            }
+
+            // own=true 时最顶层数组框架不附加元素下标（用于容器自身的路径）
+            function pathOf(stack, own) {
+                var path = '';
+                for (var i = 0; i < stack.length; i++) {
+                    var f = stack[i];
+                    if (f.type === 'arr') {
+                        if (f.key != null) path += fmtKey(f.key);
+                        if (!(own && i === stack.length - 1)) path += '[' + Math.max(f.index, 0) + ']';
+                    } else if (f.key != null) {
+                        path += fmtKey(f.key);
+                    }
+                }
+                return path;
+            }
+
+            function computePath(targetLine) {
+                var stack = [];
+                var i, line, m, key, rest;
+                for (i = 0; i <= targetLine && i < lines.length; i++) {
+                    line = lines[i].trim();
+                    if (!line) continue;
+                    if (stack.length === 0 && line.indexOf('//') === 0) continue; // 头部两行
+
+                    m = line.match(KEY_LINE);
+                    if (m) {
+                        key = JSON.parse('"' + m[1] + '"');
+                        rest = line.slice(m[0].length).trim();
+                        if (OPEN_TAIL.test(rest)) {
+                            // 值为对象/数组：压栈（key 归属新框架）；悬停本行 = 容器自身路径
+                            if (i === targetLine) return pathOf(stack) + fmtKey(key);
+                            stack.push({ type: rest.charAt(0) === '{' ? 'obj' : 'arr', key: key, index: -1 });
+                        } else if (i === targetLine) {
+                            // 标量值行：路径 = 栈 + key
+                            return pathOf(stack) + fmtKey(key);
+                        }
+                        continue;
+                    }
+
+                    if (CLOSE_LINE.test(line)) {
+                        if (i === targetLine) return pathOf(stack, true); // 收尾括号：容器自身路径（数组不带下标）
+                        stack.pop();
+                        continue;
+                    }
+
+                    if (line.charAt(0) === '{' || line.charAt(0) === '[') {
+                        // 裸开容器：数组元素或根
+                        if (stack.length && stack[stack.length - 1].type === 'arr') stack[stack.length - 1].index++;
+                        if (i === targetLine) return pathOf(stack);
+                        stack.push({ type: line.charAt(0) === '{' ? 'obj' : 'arr', key: null, index: -1 });
+                        continue;
+                    }
+
+                    // 数组标量元素
+                    if (stack.length && stack[stack.length - 1].type === 'arr') stack[stack.length - 1].index++;
+                    if (i === targetLine) return pathOf(stack);
+                }
+                return '';
+            }
+
+            window.__jsonViewerComputePath = computePath; // 调试/测试钩子
+
+            // ============ 智能值预览（时间/颜色/图片，参考 JSON Hero Content Previews） ============
+            function fmtDate(d) {
+                function p(n) { return (n < 10 ? '0' : '') + n; }
+                return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+                    ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+            }
+
+            function relativeTime(d) {
+                var diff = Date.now() - d.getTime();
+                var future = diff < 0;
+                diff = Math.abs(diff);
+                var s = Math.floor(diff / 1000);
+                var text;
+                if (s < 60) text = '刚刚';
+                else if (s < 3600) text = Math.floor(s / 60) + ' 分钟';
+                else if (s < 86400) text = Math.floor(s / 3600) + ' 小时';
+                else if (s < 2592000) text = Math.floor(s / 86400) + ' 天';
+                else if (s < 31536000) text = Math.floor(s / 2592000) + ' 个月';
+                else text = Math.floor(s / 31536000) + ' 年';
+                if (text === '刚刚') return text;
+                return future ? text + '后' : text + '前';
+            }
+
+            function previewValue(lineNo) {
+                var line = (lines[lineNo] || '').trim();
+                if (!line || line.indexOf('//') === 0) return null;
+                var v = line;
+                var m = line.match(/^"(?:[^"\\]|\\.)*"\s*:\s*(.+?),?\s*$/);
+                if (m) v = m[1];
+                else v = v.replace(/,$/, '');
+                var isStr = v.charAt(0) === '"';
+                if (isStr) {
+                    try { v = JSON.parse(v); } catch (e) { return null; }
+                } else if (!/^-?[\w.+:]+$/.test(v)) {
+                    return null; // 非简单标量不预览
+                }
+
+                // 时间：10 位秒级 / 13 位毫秒级时间戳，或 ISO 日期
+                var t = null;
+                if (/^-?\d{10}$/.test(v)) t = new Date(+v * 1000);
+                else if (/^-?\d{13}$/.test(v)) t = new Date(+v);
+                else if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(v)) {
+                    var tt = new Date(v.replace(' ', 'T'));
+                    if (!isNaN(tt)) t = tt;
+                }
+                if (t && !isNaN(t)) return { type: 'time', text: fmtDate(t) + '（' + relativeTime(t) + '）' };
+
+                // 颜色：#hex / rgb() / rgba() / hsl()
+                if (isStr && /^(#[0-9a-fA-F]{3,8}|rgba?\(\s*[\d\s,.]+\)|hsla?\(\s*[\d\s,.%]+\))$/.test(v)) {
+                    return { type: 'color', value: v };
+                }
+
+                // 图片 URL
+                if (isStr && /^https?:\/\/\S+\.(jpe?g|png|gif|webp|svg|ico|bmp)([?#]\S*)?$/i.test(v)) {
+                    return { type: 'image', url: v };
+                }
+                return null;
+            }
+
+            window.__jsonViewerPreviewValue = previewValue; // 调试/测试钩子
+
+            function ensureTip() {
+                if (tip) return tip;
+                tip = document.createElement('div');
+                tip.title = '点击复制路径';
+                tip.style.cssText = 'position:fixed;z-index:99999;max-width:70vw;padding:5px 10px;display:none;' +
+                    'background:#2d2d2d;color:#f0f0f0;border-radius:6px;white-space:nowrap;cursor:pointer;' +
+                    'font:12px/1.6 Consolas,monaco,monospace;box-shadow:0 2px 8px rgba(0,0,0,.35);';
+                tip.addEventListener('mouseenter', function () { clearTimeout(hideTimer); });
+                tip.addEventListener('mouseleave', function () {
+                    clearTimeout(hideTimer);
+                    hideTimer = setTimeout(hideTip, 120);
+                });
+                tip.addEventListener('mousedown', function (e) { e.preventDefault(); }); // 不抢编辑器焦点
+                tip.addEventListener('click', function () {
+                    var path = tip.getAttribute('data-path') || '';
+                    copyText(path).then(function () {
+                        var old = tip.textContent;
+                        tip.textContent = '✓ 已复制 ' + old;
+                        setTimeout(function () { tip.textContent = old; }, 800);
+                    }).catch(function (err) {
+                        console.error('[JSON Viewer] 复制路径失败:', err);
+                    });
+                });
+                document.body.appendChild(tip);
+                return tip;
+            }
+
+            function hideTip() {
+                if (tip) tip.style.display = 'none';
+            }
+
+            function show(e, lineNo) {
+                var path = computePath(lineNo);
+                if (!path) return;
+                var el = ensureTip();
+                el.innerHTML = '';
+                var pathSpan = document.createElement('span');
+                pathSpan.textContent = path;
+                el.appendChild(pathSpan);
+
+                var pv = previewValue(lineNo);
+                if (pv) {
+                    el.appendChild(document.createElement('br'));
+                    if (pv.type === 'time') {
+                        var ts = document.createElement('span');
+                        ts.textContent = '🕐 ' + pv.text;
+                        ts.style.color = '#9ecbff';
+                        el.appendChild(ts);
+                    } else if (pv.type === 'color') {
+                        var sw = document.createElement('span');
+                        sw.style.cssText = 'display:inline-block;width:12px;height:12px;margin-right:4px;' +
+                            'vertical-align:-2px;border:1px solid #888;border-radius:2px;background:' + pv.value + ';';
+                        var ct = document.createElement('span');
+                        ct.textContent = pv.value;
+                        ct.style.color = '#9ecbff';
+                        el.appendChild(sw);
+                        el.appendChild(ct);
+                    } else if (pv.type === 'image') {
+                        var im = document.createElement('img');
+                        im.src = pv.url;
+                        im.style.cssText = 'display:block;max-height:96px;max-width:200px;margin-top:4px;border-radius:4px;';
+                        el.appendChild(im);
+                    }
+                }
+
+                el.setAttribute('data-path', path);
+                el.style.display = 'block';
+                var x = Math.min(e.clientX + 14, (window.innerWidth || 1200) - el.offsetWidth - 8);
+                var y = e.clientY + 18;
+                if (y + el.offsetHeight > (window.innerHeight || 800) - 8) y = e.clientY - el.offsetHeight - 8;
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+            }
+
+            var wrapper = this.editor.getWrapperElement();
+            wrapper.addEventListener('mouseover', function (e) {
+                var t = e.target;
+                if (!t || !t.classList) return;
+                var isKey = t.classList.contains('cm-property');
+                var isValue = t.classList.contains('cm-string') ||
+                    t.classList.contains('cm-number') || t.classList.contains('cm-atom');
+                if (!isKey && !isValue) {
+                    clearTimeout(showTimer);
+                    return;
+                }
+                var pos;
+                try { pos = self.editor.coordsChar({ left: e.clientX, top: e.clientY }); } catch (err) { return; }
+                if (!pos || pos.line == null || pos.line < 0) return;
+                clearTimeout(hideTimer);
+                clearTimeout(showTimer);
+                if (tip && tip.style.display !== 'none') {
+                    show(e, pos.line); // 已可见则立即更新位置/内容
+                } else {
+                    showTimer = setTimeout(function () { show(e, pos.line); }, 180);
+                }
+            });
+            wrapper.addEventListener('mouseout', function () {
+                clearTimeout(showTimer);
+                clearTimeout(hideTimer);
+                hideTimer = setTimeout(hideTip, 120);
+            });
+            this.editor.on('scroll', hideTip);
+        },
+
         decodeText: function (text) {
             var div = document.createElement('div');
             div.innerHTML = text;
@@ -483,7 +761,6 @@
     // ============ 图标（移植自 viewer/svg-*.js） ============
     var SVG_GEAR = '<svg version="1.0" xmlns="http://www.w3.org/2000/svg" width="128pt" height="128pt" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet"><g transform="translate(0.000000,128.000000) scale(0.100000,-0.100000)" stroke="none"><path d="M588 1069 c-10 -5 -18 -19 -18 -29 0 -28 -39 -65 -89 -84 -39 -15 -46 -15 -67 -1 -33 21 -67 19 -91 -7 -33 -37 -34 -45 -17 -81 28 -59 -10 -167 -59 -167 -35 0 -47 -19 -47 -72 0 -38 4 -50 18 -54 64 -21 71 -27 93 -80 21 -54 21 -56 3 -89 -21 -40 -11 -73 31 -101 25 -16 28 -16 55 -1 38 23 67 21 119 -5 33 -17 47 -32 55 -58 11 -34 12 -35 65 -35 52 0 55 1 65 32 14 40 29 54 85 78 41 18 45 18 73 2 41 -24 60 -21 91 11 32 33 32 38 11 82 -14 27 -15 38 -4 72 13 47 51 88 78 88 30 0 44 24 40 72 -3 37 -7 45 -33 56 -55 24 -60 29 -82 83 -19 48 -20 56 -7 81 21 40 17 61 -14 91 -32 30 -48 33 -76 12 -27 -20 -48 -19 -107 6 -37 16 -51 28 -55 48 -4 14 -14 34 -22 44 -17 19 -67 22 -94 6z m108 -288 c155 -71 114 -301 -54 -301 -87 0 -150 53 -159 135 -10 82 28 143 104 170 50 18 60 18 109 -4z"/></g></svg>';
     var SVG_RAW = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 128 128" enable-background="new 0 0 128 128" xml:space="preserve"><g><g><path fill-rule="evenodd" clip-rule="evenodd" d="M103.199,39.9907 L98.8771,35.6692 L81.5177,18.3098 L77.1115,13.9036 L77.0491,13.8412 L77.0491,13.9036 L35.6369,13.9036 C29.6178,13.9036 24.739,18.7835 24.739,24.8015 L24.739,103.261 C24.739,109.28 29.6178,114.159 35.6369,114.159 L92.3007,114.159 C98.3198,114.159 103.199,109.28 103.199,103.261 L103.199,101.172 L98.8771,101.172 L98.8771,103.292 C98.8771,106.904 95.95,109.831 92.3386,109.831 L35.6257,109.831 C32.0143,109.831 29.0872,106.902 29.0872,103.292 L29.0872,24.8483 C29.0872,21.2368 32.0143,18.3098 35.6257,18.3098 L77.0491,18.3098 L77.0491,29.1552 C77.0491,35.1743 81.9279,40.0531 87.9469,40.0531 L98.8771,40.0531 L98.8771,61.9078 L103.199,61.9078 L103.199,40.0531 L103.261,40.0531 L103.199,39.9907 M77.0379,96.7905 L77.0379,66.2783 L72.6797,66.2783 L72.6797,66.3452 L68.3203,66.3452 L68.3203,66.2783 L63.961,66.2783 L63.961,96.7905 L68.3203,96.7905 L68.3203,83.6455 L72.6797,83.6455 L72.6797,96.7916 L77.0379,96.7916 L77.0379,96.7905 M68.3203,79.4222 L68.3203,70.5686 L72.6797,70.5686 L72.6797,79.4222 L68.3203,79.4222 M46.5247,66.2761 L46.5247,96.7927 L50.884,96.7927 L50.884,83.6478 L55.2434,83.6478 L55.2434,79.4244 L50.884,79.4244 L50.884,70.5708 L55.2434,70.5708 L55.2434,66.3452 L50.884,66.3452 L50.884,66.2772 L46.5247,66.2772 L46.5247,66.2761 M55.2434,79.3531 L59.6027,79.3531 L59.6027,70.6355 L55.2434,70.6355 L55.2434,79.3531 M59.6027,83.7146 L55.2434,83.7146 L55.2434,96.7916 L59.6027,96.7916 L59.6027,83.7146 M98.8347,96.7225 L98.8347,92.4322 L103.194,92.4322 L103.194,66.275 L98.8347,66.275 L98.8347,92.362 L94.4754,92.362 L94.4754,66.275 L90.116,66.275 L90.116,92.362 L85.7578,92.362 L85.7578,66.275 L81.3984,66.275 L81.3984,92.4311 L85.7366,92.4311 L85.7366,96.7214 L90.116,96.7214 L90.116,92.4311 L94.4553,92.4311 L94.4553,96.7214 L98.8347,96.7214 L98.8347,96.7225 Z"/></g></g>';
-    var SVG_UNFOLD = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" x="0px" y="0px" viewBox="0 0 128 128" enable-background="new 0 0 128 128" xml:space="preserve"><g fill-rule="evenodd" stroke="none" stroke-width="1"><g transform="translate(-511.000000, -465.000000)"><g transform="translate(511.500000, 465.000000)"><path d="M66.7414,31.6694 L83.4281,48.3562 L90.7286,41.0557 L66.7414,17.0685 L42.7542,41.0557 L50.0546,48.3562 L66.7414,31.6694 M66.7414,96.3306 L50.0546,79.6438 L42.7542,86.9443 L66.7414,110.931 L90.7286,86.9443 L83.4281,79.6438 L66.7414,96.3306 Z"/></g></g></g>';
     var SVG_COPY = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" x="0px" y="0px" viewBox="0 0 128 128" xml:space="preserve"><path fill-rule="evenodd" clip-rule="evenodd" d="M104 24H48c-4.4 0-8 3.6-8 8v8h-8c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8v-8h8c4.4 0 8-3.6 8-8V32c0-4.4-3.6-8-8-8z M88 104H32V48h8v48c0 .3 0 .6 0 .8.4 3.9 3.6 7.2 7.6 7.2.1 0 .3 0 .4 0v0H88V104z M104 88H48V32h56V88z"/></svg>';
 
     // ============ 剪贴板（优先 Clipboard API，降级 execCommand） ============
@@ -560,29 +837,9 @@
             }
         };
 
-        var unfoldLink = document.createElement('a');
-        unfoldLink.className = 'json_viewer icon unfold';
-        unfoldLink.href = '#';
-        unfoldLink.title = 'Fold/Unfold all toggle';
-        unfoldLink.innerHTML = SVG_UNFOLD;
-        unfoldLink.onclick = function (e) {
-            e.preventDefault();
-            var value = pre.getAttribute('data-folded');
-            if (value === 'true' || value === true) {
-                highlighter.unfoldAll();
-                pre.setAttribute('data-folded', false);
-            } else {
-                highlighter.fold();
-                pre.setAttribute('data-folded', true);
-            }
-        };
-
-        pre.setAttribute('data-folded', options.addons.alwaysFold);
-
         extras.appendChild(optionsLink);
         extras.appendChild(copyLink);
         extras.appendChild(rawLink);
-        extras.appendChild(unfoldLink);
         document.body.appendChild(extras);
     }
 

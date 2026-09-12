@@ -3,16 +3,21 @@
 > 2026-09 集成 · 移植自 [json-viewer](https://github.com/tulios/json-viewer)（MIT, @tulios）
 > 源码位置：`/Users/hshen/work/json-viewer`（上游原版，无本地改动）
 
+> 详见 [JSON_VIEWER_RESEARCH.md](./JSON_VIEWER_RESEARCH.md)（各家 JSON 查看器功能调研）
+
 ## 功能概述
 
 浏览任意返回 JSON/JSONP 的接口时，自动格式化并以 CodeMirror（coy 主题）高亮渲染：
 
 - ✅ 语法高亮（coy 主题）
-- ✅ 节点折叠 / 展开全部（工具条按钮 + fold gutter）
+- ✅ 节点折叠（行号栏 fold gutter 箭头）
 - ✅ 行号
 - ✅ 时间头部（`// YYYY-MM-DD HH:mm:ss` + 请求 URL，前 3 行；按需求从紧凑时间戳改为可读时间）
 - ✅ 可点击 URL（字符串中的链接下划线可点，新窗口打开）
 - ✅ 一键复制格式化 JSON（工具条新增复制按钮，成功显示 ✓）
+- ✅ Key 路径提示与复制（悬停 key/值显示如 `.data.items[3].id` 的气泡，点击复制；栈式行扫描推导，特殊字符 key 自动转 `["..."]` 形式）
+- ✅ 智能值预览（悬停气泡附带，参考 JSON Hero）：时间戳/秒/毫秒级、ISO 日期 → 人性化时间+相对时间；颜色值 → 色块；图片 URL → 缩略图
+- ✅ NDJSON/JSONL 支持（参考 Firefox 查看器）：逐行 JSON 的日志文件自动包装成数组渲染，路径 `[N].xxx` 即第 N 条记录；任一行非法则整体不按 NDJSON 处理
 - ✅ raw / 高亮 一键切换
 - ✅ Ctrl-F / Cmd-F 搜索（CodeMirror 搜索，Enter 下一个）
 - ✅ 超大 JSON 保护（>400KB 不自动渲染，弹提示可「Highlight anyway!」强制）
@@ -40,7 +45,11 @@
 - ✅ 复制按钮：Clipboard API + execCommand 降级，复制格式化文本（不含头部），成功后 ✓ 反馈 1s
 - ✅ 解析失败提示条：正则通过但 `JSON.parse` 失败时红色横幅 + 原文
 - ✅ 本地文件：manifest 改用 `<all_urls>` 覆盖 file://（`file://*/*` 无效，file 协议无 host）
-- ❌ Key 路径复制（缓做）、开关实时生效（不做）、仓库旧债清理（另开 session）
+- ✅ Key 路径提示与复制：悬停 key/value 显示路径气泡，点击复制（基于格式化文本的栈式行扫描，不依赖 CM 内部结构，折叠状态不影响）
+- ✅ 智能值预览：时间（10/13 位时间戳、ISO 日期 → 可读+相对时间）、颜色色块、图片缩略图
+- ✅ NDJSON：getSourceText 在 JSON.parse 失败后试逐行解析，≥2 行合法即包装为数组（注意 tulios 宽松正则会放行多行文档，分流必须以真实 parse 为准）
+- ❌ 开关实时生效（不做）、仓库旧债清理（另开 session）、过滤搜索框与请求头展示（缓）
+- ➖ 折叠到第 N 层（1/2/3/All 工具条按钮）：已实现后按用户要求移除（鸡肋）；保留行号栏折叠箭头
 - ➖ 深色模式与页面主题切换：已实现后按用户要求移除
 
 ### 关键技术点：为什么 CodeMirror 要懒加载 + 走 background
