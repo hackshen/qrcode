@@ -46,8 +46,9 @@ npm run build
 
 **JSON 高亮集成**
 
-- ✅ 移植 json-viewer 核心渲染：JSON/JSONP 页面自动格式化 + CodeMirror 高亮（coy 主题）
-- ✅ 折叠、行号、时间戳头部、可点击 URL、raw 切换、Ctrl-F 搜索、400KB 超大保护
+- ✅ 移植 json-viewer 核心渲染：JSON/JSONP 页面自动格式化 + CodeMirror 高亮（浅色 coy / 深色 monokai 自动切换）
+- ✅ 折叠、行号、可读时间头部、可点击 URL、raw 切换、Ctrl-F 搜索、一键复制、400KB 超大保护、解析失败提示
+- ✅ 本地 .json 文件高亮（需开启「允许访问文件网址」）
 - ✅ CodeMirror 懒加载（仅 JSON 页面加载，经 background scripting 注入，不受页面 CSP 影响）
 - ✅ 设置页新增「JSON 高亮」总开关（默认开启）
 

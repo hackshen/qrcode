@@ -128,6 +128,19 @@ div.CodeMirror-selected {
   line-height: 1.5em;
 }
 
+/* --- 深色模式（monokai，系统 prefers-color-scheme 联动） --- */
+body.json-viewer-dark .extras .icon svg {
+  fill: #e8e8e8;
+}
+
+body.json-viewer-dark .extras .icon:hover {
+  background-color: #666;
+}
+
+body.json-viewer-dark .extras.auto-highlight-off .icon {
+  background-color: #666;
+}
+
 /* --- 超大 JSON 警告条（viewer-alert.scss 编译） --- */
 .json-viewer-alert {
   -webkit-user-select: none;
