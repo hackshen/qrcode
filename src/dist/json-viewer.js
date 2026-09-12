@@ -354,6 +354,10 @@
             this.defaultSearch = false;
         },
 
+        setTheme: function (theme) {
+            if (this.editor) this.editor.setOption('theme', theme);
+        },
+
         getDOMEditor: function () {
             return document.getElementsByClassName('CodeMirror')[0];
         },
@@ -512,6 +516,32 @@
         var extras = document.createElement('div');
         extras.className = 'extras';
 
+        // 主题切换：◐自动 → ☀浅色 → ☾深色，即时生效并记忆
+        var themeMode = options.themeMode || 'auto';
+        var THEME_META = {
+            auto: { icon: '◐', title: '主题：跟随系统' },
+            light: { icon: '☀', title: '主题：浅色(coy)' },
+            dark: { icon: '☾', title: '主题：深色(monokai)' },
+        };
+        var themeLink = document.createElement('a');
+        themeLink.className = 'json_viewer icon theme';
+        themeLink.href = '#';
+        themeLink.style.cssText = 'text-align:center;line-height:40px;font-size:22px;text-decoration:none;';
+        var renderThemeIcon = function () {
+            var meta = THEME_META[themeMode] || THEME_META.auto;
+            themeLink.innerHTML = meta.icon;
+            themeLink.title = meta.title + '（点击切换）';
+        };
+        renderThemeIcon();
+        themeLink.onclick = function (e) {
+            e.preventDefault();
+            themeMode = themeMode === 'auto' ? 'light' : (themeMode === 'light' ? 'dark' : 'auto');
+            applyThemeMode(resolveTheme(themeMode));
+            try { highlighter.setTheme(INTERNAL_OPTIONS.theme); } catch (err) { /* 编辑器未就绪时忽略 */ }
+            try { chrome.storage.local.set({ jsonViewerTheme: themeMode }); } catch (err) {}
+            renderThemeIcon();
+        };
+
         var optionsLink = document.createElement('a');
         optionsLink.className = 'json_viewer icon gear';
         optionsLink.href = chrome.runtime.getURL('options.html');
@@ -579,6 +609,7 @@
 
         pre.setAttribute('data-folded', options.addons.alwaysFold);
 
+        extras.appendChild(themeLink);
         extras.appendChild(optionsLink);
         extras.appendChild(copyLink);
         extras.appendChild(rawLink);
@@ -724,15 +755,28 @@
         });
     }
 
-    function start(pre) {
-        // 深色模式联动：系统深色时切 monokai，图标/工具条同步换色
+    // ============ 主题模式（auto=跟随系统 / light=coy / dark=monokai，页面工具条可切换并记忆） ============
+    function resolveTheme(pref) {
+        if (pref === 'light' || pref === 'dark') return pref;
         try {
             if (typeof window.matchMedia === 'function' &&
                 window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                INTERNAL_OPTIONS.theme = 'monokai';
-                document.body.classList.add('json-viewer-dark');
+                return 'dark';
             }
-        } catch (e) { /* matchMedia 不可用时保持 coy */ }
+        } catch (e) { /* matchMedia 不可用时按浅色 */ }
+        return 'light';
+    }
+
+    function applyThemeMode(mode) {
+        var dark = mode === 'dark';
+        INTERNAL_OPTIONS.theme = dark ? 'monokai' : 'coy';
+        try { document.body.classList.toggle('json-viewer-dark', dark); } catch (e) {}
+        return INTERNAL_OPTIONS.theme;
+    }
+
+    function start(pre, themePref) {
+        INTERNAL_OPTIONS.themeMode = (themePref === 'light' || themePref === 'dark') ? themePref : 'auto';
+        applyThemeMode(resolveTheme(themePref));
 
         if (isOversized(pre)) {
             // 超大 JSON：保持原文，弹提示可手动强高亮
@@ -752,11 +796,17 @@
     // ============ 启动：配置读取(document_start 即发起) + DOM 就绪 双等待 ============
     var configReady = (async function () {
         try {
-            var result = await chrome.storage.sync.get('extensionConfig');
-            return result.extensionConfig;
+            var results = await Promise.all([
+                chrome.storage.sync.get('extensionConfig'),
+                chrome.storage.local.get('jsonViewerTheme'),
+            ]);
+            return {
+                config: results[0].extensionConfig,
+                themePref: results[1] && results[1].jsonViewerTheme,
+            };
         } catch (error) {
             console.error('[JSON Viewer] 读取配置失败:', error);
-            return null;
+            return { config: null, themePref: null };
         }
     })();
 
@@ -769,12 +819,14 @@
     });
 
     Promise.all([configReady, domReady]).then(function (results) {
-        var config = results[0];
+        var loaded = results[0];
+        var config = loaded && loaded.config;
         // 总开关：默认开启，仅显式 false 时禁用（与 autoLogin 开关同语义）
         if (config && config.features && config.features.jsonViewer === false) {
             console.log('[JSON Viewer] 功能已关闭');
             return;
         }
-        checkIfJson(start);
+        var themePref = loaded && loaded.themePref;
+        checkIfJson(function (pre) { start(pre, themePref); });
     });
 })();

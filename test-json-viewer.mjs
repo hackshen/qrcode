@@ -5,7 +5,7 @@ import vm from 'vm';
 
 const source = fs.readFileSync('build/json-viewer.js', 'utf8');
 
-function makeStubs({ json, dark = false }) {
+function makeStubs({ json, dark = false, pref = null }) {
     const pre = {
         nodeName: 'PRE', textContent: json, hidden: false,
         setAttribute() {}, getAttribute() { return null; },
@@ -34,13 +34,16 @@ function makeStubs({ json, dark = false }) {
         head: { appendChild() {} },
         body: {
             childNodes: [pre], normalize() {}, appendChild: (el) => bodyChildren.push(el),
-            removeChild() {}, insertBefore() {}, classList: { add() {} },
+            removeChild() {}, insertBefore() {}, classList: { add() {}, toggle() {} },
         },
         location: { href: 'https://api.test.com/data' },
     };
 
     const chromeStub = {
-        storage: { sync: { get: async () => ({ extensionConfig: { features: { jsonViewer: true } } }) } },
+        storage: {
+            sync: { get: async () => ({ extensionConfig: { features: { jsonViewer: true } } }) },
+            local: { get: async () => ({ jsonViewerTheme: pref }), set: async () => {} },
+        },
         runtime: { getURL: (p) => '/' + p, sendMessage: (msg, cb) => cb({ success: true }) },
     };
 
@@ -108,6 +111,13 @@ async function run(scenario) {
         throw new Error('应显示红色解析失败提示条');
     }
     if (pre.hidden) throw new Error('解析失败应显示原文');
+}
+
+// ============ 场景 4：记忆的主题偏好（pref=dark） ============
+{
+    const { cmCalls } = await run({ json: '{"saved":true}', pref: 'dark' });
+    console.log('✅ [记忆偏好] 主题 =', cmCalls[0].theme);
+    if (cmCalls[0].theme !== 'monokai') throw new Error('记忆偏好 dark 应渲染 monokai');
 }
 
 console.log('\n🎉 全部通过');
