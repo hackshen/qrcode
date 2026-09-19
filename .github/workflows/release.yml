@@ -41,7 +41,7 @@ jobs:
       - name: 🗜️ Create ZIP archive
         run: |
           cd build
-          zip -r ../extension-${{ steps.get_version.outputs.VERSION }}.zip .
+          zip -r ../extension-${{ steps.get_version.outputs.VERSION }}.zip . -x "*.map"
           cd ..
 
       - name: 📋 Generate changelog

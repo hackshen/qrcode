@@ -18,11 +18,12 @@ execSync('npm run build', { cwd: root, stdio: 'inherit' });
 const { version } = JSON.parse(readFileSync(resolve(root, 'src/extension/manifest.json'), 'utf8'));
 
 // 3. 压缩（zip -r，macOS/Linux 自带；Windows 需 WSL 或 Git Bash）
+// 排除 *.map：hidden-source-map 生成但不被引用，发布包里是死重（879KB）
 const zipName = `devkit-pro-v${version}.zip`;
 const zipPath = resolve(releaseDir, zipName);
 mkdirSync(releaseDir, { recursive: true });
 if (existsSync(zipPath)) rmSync(zipPath); // 覆盖旧包（zip 会追加而非替换）
-execSync(`cd "${buildDir}" && zip -rq "${zipPath}" .`, { stdio: 'inherit' });
+execSync(`cd "${buildDir}" && zip -rq "${zipPath}" . -x "*.map"`, { stdio: 'inherit' });
 
 const sizeKB = (existsSync(zipPath) ? readFileSync(zipPath).length / 1024 : 0).toFixed(1);
 console.log(`\n📦 打包完成: release/${zipName}（${sizeKB} KB）`);
