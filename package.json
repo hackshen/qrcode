@@ -13,8 +13,9 @@
   "scripts": {
     "dev": "rsbuild dev",
     "build": "rsbuild build && node scripts/clean-build.mjs",
-    "test": "node tests/test-json-viewer.mjs",
-    "lint": "eslint src tests scripts"
+    "test": "node tests/test-json-viewer.mjs && node tests/e2e-smoke.mjs",
+    "lint": "eslint src tests scripts",
+    "test:e2e": "node tests/e2e-smoke.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
@@ -23,6 +24,7 @@
     "eslint": "^9.15.0",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^15.12.0"
+    "globals": "^15.12.0",
+    "puppeteer-core": "^25.11.0"
   }
 }

@@ -35,6 +35,8 @@ export default [
             'react/prop-types': 'off',
             // 让核心 no-unused-vars 识别 JSX 引用（否则组件全被误报 unused）
             'react/jsx-uses-vars': 'error',
+            // JSX 未定义组件直接报错（no-undef 不检查 JSX 标识符，之前拆分漏 import 就没抓到）
+            'react/jsx-no-undef': 'error',
             // 自动 JSX runtime 下 React 标识符可不写
             'react/react-in-jsx-scope': 'off',
             'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],

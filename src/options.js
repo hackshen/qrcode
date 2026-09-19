@@ -4,6 +4,13 @@ import { DEFAULT_EXTENSION_CONFIG as DEFAULT_CONFIG } from './shared/default-con
 import { HTTP_RULES_KEY, DEFAULT_HTTP_RULES, migrateHttpRules } from './shared/http-rules.js';
 import './options.css';
 
+// ============ 拆分组件（按功能域，纯代码搬移） ============
+import { HttpRulesManager } from './options/http-rules.js';
+import { SiteProfileManager } from './options/auto-login.js';
+import { OptionItem, SavedDataDisplay } from './options/common.js';
+import { ProxyManager } from './options/proxy.js';
+import { SourceMapManager } from './options/sourcemap.js';
+
 // ============ React 组件 ============
 
 function OptionsApp() {

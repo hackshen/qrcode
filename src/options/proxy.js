@@ -1,5 +1,6 @@
 // 注：本文件由 options.js 拆出，属纯代码搬移，逻辑未变
 import { useState } from 'react';
+import { OptionItem } from './common.js';
 
 export function ProxyManager({ proxyConfig, onChange }) {
     const [editingProfile, setEditingProfile] = useState(null);
