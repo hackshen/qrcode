@@ -23,36 +23,8 @@ const DEFAULT_EXTENSION_CONFIG = {
     cdn: {
         jquery: 'https://libs.baidu.com/jquery/2.0.0/jquery.min.js',
     },
-    // HTTP 头规则
-    httpRules: [
-        // {
-        //     id: 'lotsmall',
-        //     enabled: true,
-        //     name: 'Lotsmall 防盗链',
-        //     urlFilter: '*://statics.lotsmall.cn/*',
-        //     headerType: 'request',
-        //     headerName: 'Referer',
-        //     headerValue: 'https://wap.lotsmall.cn/'
-        // },
-        // {
-        //     id: 'juejin',
-        //     enabled: true,
-        //     name: '掘金图片防盗链',
-        //     urlFilter: '*://p3-juejin.byteimg.com/*',
-        //     headerType: 'request',
-        //     headerName: 'Referer',
-        //     headerValue: 'https://juejin.cn/'
-        // },
-        // {
-        //     id: 'huangshan',
-        //     enabled: true,
-        //     name: '黄山 CORS',
-        //     urlFilter: '*://statics.huangshan.com.cn/*',
-        //     headerType: 'response',
-        //     headerName: 'Access-Control-Allow-Origin',
-        //     headerValue: '*'
-        // }
-    ],
+    // 注：HTTP 头规则已独立存储于 extensionHttpRules key（storage.sync 单项 8KB 配额限制），
+    // 不再随 extensionConfig 存储与合并，避免 mergeConfig 在扩展更新时复活旧字段
     // OCR 验证码识别
     ocr: {
         apiUrl: 'https://api.hackshen.com/ocr',

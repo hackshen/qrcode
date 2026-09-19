@@ -5,25 +5,22 @@ console.log('[HTTP Rules] 🟢 管理器已启动');
 // 规则 ID 起始值（避免与 SourceMap 规则冲突）
 const RULE_ID_START = 10000;
 
-// Chrome 允许修改的响应头列表
-const ALLOWED_RESPONSE_HEADERS = [
-    'access-control-allow-origin',
-    'access-control-allow-credentials',
-    'access-control-allow-headers',
-    'access-control-allow-methods',
-    'access-control-expose-headers',
-    'access-control-max-age'
-];
+// 规则独立存储的 key（与 extensionConfig 分离，避免 8KB 单项配额限制）
+const HTTP_RULES_KEY = 'extensionHttpRules';
 
 // 将配置规则转换为 declarativeNetRequest 规则
 function convertToDeclarativeRule(configRule, index) {
     const ruleId = RULE_ID_START + index;
 
-    const headers = [{
+    // 操作方式：set（设置值）/ remove（删除头），默认 set（兼容旧配置）
+    const operation = configRule.operation === 'remove' ? 'remove' : 'set';
+    const header = {
         header: configRule.headerName,
-        operation: 'set',
-        value: configRule.headerValue
-    }];
+        operation
+    };
+    if (operation === 'set') {
+        header.value = configRule.headerValue ?? '';
+    }
 
     const rule = {
         id: ruleId,
@@ -42,42 +39,55 @@ function convertToDeclarativeRule(configRule, index) {
     };
 
     // 根据类型设置请求头或响应头
+    // 说明：扩展声明了 declarativeNetRequestWithHostAccess + <all_urls> host 权限，
+    // 请求头和响应头均可修改，无 Chrome 白名单限制
     if (configRule.headerType === 'request') {
-        rule.action.requestHeaders = headers;
+        rule.action.requestHeaders = [header];
     } else {
-        // 响应头 - 检查是否为 Chrome 允许的头
-        const headerNameLower = configRule.headerName.toLowerCase();
-        if (!ALLOWED_RESPONSE_HEADERS.includes(headerNameLower)) {
-            console.warn(
-                `[HTTP Rules] ⚠️  警告: "${configRule.headerName}" 不在 Chrome 允许的响应头列表中`,
-                `\n   规则: ${configRule.name}`,
-                `\n   Chrome 只允许修改这些响应头:`,
-                ALLOWED_RESPONSE_HEADERS.join(', '),
-                `\n   此规则可能不会生效！`
-            );
-        }
-        rule.action.responseHeaders = headers;
+        rule.action.responseHeaders = [header];
     }
 
     return rule;
+}
+
+// 读取规则配置（含一次性迁移：旧结构 extensionConfig.httpRules → 独立 key）
+async function loadHttpRulesConfig() {
+    const result = await chrome.storage.sync.get(['extensionConfig', HTTP_RULES_KEY]);
+
+    // 新结构已存在，直接使用
+    if (Array.isArray(result[HTTP_RULES_KEY])) {
+        return result[HTTP_RULES_KEY];
+    }
+
+    // 旧结构存在 httpRules 字段 → 迁移到独立 key，并从 extensionConfig 中移除
+    const legacyRules = result.extensionConfig?.httpRules;
+    if (Array.isArray(legacyRules)) {
+        try {
+            const { httpRules, ...configWithoutRules } = result.extensionConfig;
+            await chrome.storage.sync.set({ [HTTP_RULES_KEY]: httpRules, extensionConfig: configWithoutRules });
+            console.log('[HTTP Rules] 🔄 已迁移旧规则到独立存储 key:', HTTP_RULES_KEY);
+        } catch (error) {
+            console.error('[HTTP Rules] ❌ 规则迁移失败:', error);
+        }
+        return legacyRules;
+    }
+
+    return [];
 }
 
 // 应用规则
 async function applyHttpRules() {
     try {
         // 读取配置
-        const result = await chrome.storage.sync.get('extensionConfig');
-        const config = result.extensionConfig || {};
-        const httpRules = config.httpRules || [];
+        const httpRules = await loadHttpRulesConfig();
 
         console.log('[HTTP Rules] 📋 读取到', httpRules.length, '条规则');
-        console.log('[HTTP Rules] 📝 规则详情:', httpRules);
 
         // 获取现有的动态规则
         const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
         console.log('[HTTP Rules] 📦 现有动态规则:', existingRules.length, '条');
 
-        // 找出需要移除的规则（ID >= RULE_ID_START 的规则）
+        // 找出需要移除的规则（本管理器占用的 ID 段）
         const rulesToRemove = existingRules
             .filter(rule => rule.id >= RULE_ID_START && rule.id < 20000)
             .map(rule => rule.id);
@@ -86,35 +96,23 @@ async function applyHttpRules() {
         const enabledRules = httpRules.filter(rule => rule.enabled);
         console.log('[HTTP Rules] ✅ 启用的规则:', enabledRules.length, '条');
 
-        const rulesToAdd = enabledRules.map((rule, index) => {
-            const converted = convertToDeclarativeRule(rule, index);
-            console.log('[HTTP Rules] 🔄 转换规则:', {
-                original: rule,
-                converted: converted
-            });
-            return converted;
-        });
+        const rulesToAdd = enabledRules.map((rule, index) => convertToDeclarativeRule(rule, index));
 
         // 更新规则
-        console.log('[HTTP Rules] 🔧 准备更新规则...');
-        console.log('[HTTP Rules]    移除:', rulesToRemove);
-        console.log('[HTTP Rules]    添加:', rulesToAdd);
-
         await chrome.declarativeNetRequest.updateDynamicRules({
             removeRuleIds: rulesToRemove,
             addRules: rulesToAdd
         });
 
-        console.log('[HTTP Rules] ✅ 规则已更新');
-        console.log('[HTTP Rules] 🗑️  移除', rulesToRemove.length, '条旧规则');
-        console.log('[HTTP Rules] ➕ 添加', rulesToAdd.length, '条新规则');
+        console.log('[HTTP Rules] ✅ 规则已更新，移除', rulesToRemove.length, '条，添加', rulesToAdd.length, '条');
 
         // 输出每条规则的详情
-        rulesToAdd.forEach((rule, index) => {
-            const configRule = httpRules.filter(r => r.enabled)[index];
-            const headerType = configRule.headerType === 'request' ? '请求头' : '响应头';
-            console.log(`[HTTP Rules] ${index + 1}. ${configRule.name} (${headerType})`);
-            console.log(`   ${configRule.urlFilter} → ${configRule.headerName}: ${configRule.headerValue}`);
+        enabledRules.forEach((rule, index) => {
+            const headerType = rule.headerType === 'request' ? '请求头' : '响应头';
+            const operation = rule.operation === 'remove' ? '删除' : '设置';
+            const valuePart = rule.operation === 'remove' ? '' : `: ${rule.headerValue}`;
+            console.log(`[HTTP Rules] ${index + 1}. ${rule.name} (${headerType}${operation})`);
+            console.log(`   ${rule.urlFilter} → ${rule.headerName}${valuePart}`);
         });
 
     } catch (error) {
@@ -124,12 +122,25 @@ async function applyHttpRules() {
 
 // 监听配置变化
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'sync' && changes.extensionConfig) {
-        const oldRules = changes.extensionConfig.oldValue?.httpRules || [];
-        const newRules = changes.extensionConfig.newValue?.httpRules || [];
+    if (areaName !== 'sync') return;
 
-        if (JSON.stringify(oldRules) !== JSON.stringify(newRules)) {
+    // 新结构：独立 key 变化（内容无变化时跳过重复应用）
+    const ruleChange = changes[HTTP_RULES_KEY];
+    if (ruleChange) {
+        if (JSON.stringify(ruleChange.newValue) !== JSON.stringify(ruleChange.oldValue)) {
             console.log('[HTTP Rules] 🔄 检测到规则变化，重新应用...');
+            applyHttpRules();
+        }
+        return;
+    }
+
+    // 旧结构兜底：迁移完成前 extensionConfig.httpRules 仍可能被旧版本页面更新
+    const legacyChange = changes.extensionConfig;
+    if (legacyChange) {
+        const oldRules = legacyChange.oldValue?.httpRules || [];
+        const newRules = legacyChange.newValue?.httpRules || [];
+        if (JSON.stringify(oldRules) !== JSON.stringify(newRules)) {
+            console.log('[HTTP Rules] 🔄 检测到旧结构规则变化，重新应用...');
             applyHttpRules();
         }
     }

@@ -389,6 +389,11 @@ footer {
     color: #52c41a;
 }
 
+.header-type.remove {
+    background: #fff1f0;
+    color: #ff4d4f;
+}
+
 .rule-actions {
     display: flex;
     gap: 5px;

@@ -27,36 +27,8 @@ const DEFAULT_CONFIG = {
     },
     // SourceMap 域名
     // sourcemapDomains: [],
-    // HTTP 头规则
-    httpRules: [
-        {
-            id: 'lotsmall',
-            enabled: true,
-            name: 'Lotsmall 防盗链',
-            urlFilter: '*://statics.lotsmall.cn/*',
-            headerType: 'request',
-            headerName: 'Referer',
-            headerValue: 'https://wap.lotsmall.cn/'
-        },
-        {
-            id: 'juejin',
-            enabled: true,
-            name: '掘金图片防盗链',
-            urlFilter: '*://p3-juejin.byteimg.com/*',
-            headerType: 'request',
-            headerName: 'Referer',
-            headerValue: 'https://juejin.cn/'
-        },
-        {
-            id: 'huangshan',
-            enabled: true,
-            name: '黄山 CORS',
-            urlFilter: '*://statics.huangshan.com.cn/*',
-            headerType: 'response',
-            headerName: 'Access-Control-Allow-Origin',
-            headerValue: '*'
-        }
-    ],
+    // 注：HTTP 头规则不再放在 extensionConfig 里（storage.sync 单项 8KB 配额限制），
+    // 独立存储于 extensionHttpRules key，默认值见下方 DEFAULT_HTTP_RULES
     // OCR 验证码识别
     ocr: {
         apiUrl: 'https://api.hackshen.com/ocr',
@@ -77,11 +49,49 @@ const DEFAULT_CONFIG = {
     }
 };
 
+// HTTP 头规则独立存储 key 与默认规则（与 http-rules-manager.js 保持一致）
+const HTTP_RULES_KEY = 'extensionHttpRules';
+const DEFAULT_HTTP_RULES = [
+    {
+        id: 'lotsmall',
+        enabled: true,
+        name: 'Lotsmall 防盗链',
+        urlFilter: '*://statics.lotsmall.cn/*',
+        headerType: 'request',
+        operation: 'set',
+        headerName: 'Referer',
+        headerValue: 'https://wap.lotsmall.cn/'
+    },
+    {
+        id: 'juejin',
+        enabled: true,
+        name: '掘金图片防盗链',
+        urlFilter: '*://p3-juejin.byteimg.com/*',
+        headerType: 'request',
+        operation: 'set',
+        headerName: 'Referer',
+        headerValue: 'https://juejin.cn/'
+    },
+    {
+        id: 'huangshan',
+        enabled: true,
+        name: '黄山 CORS',
+        urlFilter: '*://statics.huangshan.com.cn/*',
+        headerType: 'response',
+        operation: 'set',
+        headerName: 'Access-Control-Allow-Origin',
+        headerValue: '*'
+    }
+];
+
 // ============ React 组件 ============
 
 function OptionsApp() {
     // State
     const [config, setConfig] = useState(DEFAULT_CONFIG);
+    const [httpRules, setHttpRules] = useState(DEFAULT_HTTP_RULES);
+    // 规则自动保存签名：null = 初始加载未完成；非空 = 最近一次落盘的规则内容签名
+    const rulesSavedSigRef = useRef(null);
     const [savedData, setSavedData] = useState(null);
     const [status, setStatus] = useState({ message: '', type: '' });
     const [loading, setLoading] = useState(true);
@@ -107,12 +117,30 @@ function OptionsApp() {
     // 加载配置
     const loadConfig = async () => {
         try {
-            const result = await chrome.storage.sync.get('extensionConfig');
+            const result = await chrome.storage.sync.get(['extensionConfig', HTTP_RULES_KEY]);
+
+            // HTTP 头规则：独立 key 优先；旧结构（extensionConfig.httpRules）一次性迁移
+            let rules;
+            if (Array.isArray(result[HTTP_RULES_KEY])) {
+                rules = result[HTTP_RULES_KEY];
+            } else if (result.extensionConfig && Array.isArray(result.extensionConfig.httpRules)) {
+                rules = result.extensionConfig.httpRules;
+                const { httpRules: legacyRules, ...configWithoutRules } = result.extensionConfig;
+                await chrome.storage.sync.set({ [HTTP_RULES_KEY]: legacyRules, extensionConfig: configWithoutRules });
+                console.log('🔄 HTTP 头规则已迁移到独立存储:', HTTP_RULES_KEY);
+            } else {
+                rules = DEFAULT_HTTP_RULES;
+            }
+            setHttpRules(rules);
+
             // 合并默认配置，确保所有字段都存在
             const loadedConfig = result.extensionConfig
                 ? { ...DEFAULT_CONFIG, ...result.extensionConfig, ocr: { ...DEFAULT_CONFIG.ocr, ...result.extensionConfig.ocr } }
                 : DEFAULT_CONFIG;
+            // 防止迁移前的残留字段随下次保存写回
+            delete loadedConfig.httpRules;
             setConfig(loadedConfig);
+            rulesSavedSigRef.current = JSON.stringify([rules, loadedConfig.proxy?.rules ?? [], loadedConfig.sourcemap?.rules ?? []]);
             setLoading(false);
         } catch (error) {
             console.error('❌ 加载配置失败:', error);
@@ -147,7 +175,8 @@ function OptionsApp() {
     // 保存配置
     const handleSave = async () => {
         try {
-            await chrome.storage.sync.set({ extensionConfig: config });
+            // httpRules 独立存储，避免撑爆 extensionConfig 的 storage.sync 单项配额
+            await chrome.storage.sync.set({ extensionConfig: config, [HTTP_RULES_KEY]: httpRules });
             console.log('✅ 配置已保存:', config);
             showStatus('✅ 设置已保存！刷新页面后生效', 'success');
 
@@ -165,16 +194,40 @@ function OptionsApp() {
         }
     };
 
+    // —— 规则自动保存 ——
+    // HTTP/代理/SourceMap 规则的增删改、启停、导入在弹窗“添加/更新”后只改内存 state，
+    // 历史上必须再点页面底部“保存设置”才落盘，极易漏点导致“规则看似存在实则未保存”。
+    // 此 effect 监听规则内容签名，变化后自动写 storage；其他配置项仍走手动保存按钮。
+    useEffect(() => {
+        const sig = JSON.stringify([httpRules, config.proxy?.rules ?? [], config.sourcemap?.rules ?? []]);
+        if (rulesSavedSigRef.current === null) return; // 初始加载未完成
+        if (sig === rulesSavedSigRef.current) return;  // 规则内容无变化（其他配置编辑会更换 config 对象，但签名不变）
+        const timer = setTimeout(async () => {
+            try {
+                await chrome.storage.sync.set({ extensionConfig: config, [HTTP_RULES_KEY]: httpRules });
+                rulesSavedSigRef.current = sig;
+                showStatus('✅ 规则已自动保存', 'success');
+                // 与手动保存保持一致：通知 content script
+                const tabs = await chrome.tabs.query({});
+                tabs.forEach(tab => {
+                    chrome.tabs.sendMessage(tab.id, { action: 'configUpdated', config }).catch(() => {});
+                });
+            } catch (error) {
+                console.error('❌ 规则自动保存失败:', error);
+                showStatus('❌ 自动保存失败，请点击底部“保存设置”重试', 'error');
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [httpRules, config]);
+
     // 恢复默认
     const handleReset = async () => {
         if (confirm('确定要恢复默认设置吗？')) {
+            // 重置交给规则自动保存 effect 落盘（规则签名变化触发）
             setConfig(DEFAULT_CONFIG);
-            try {
-                await chrome.storage.sync.set({ extensionConfig: DEFAULT_CONFIG });
-                showStatus('✅ 已恢复默认设置', 'success');
-            } catch (error) {
-                showStatus('❌ 恢复失败，请重试', 'error');
-            }
+            setHttpRules(DEFAULT_HTTP_RULES);
+            showStatus('✅ 已恢复默认设置', 'success');
         }
     };
 
@@ -337,8 +390,8 @@ function OptionsApp() {
                 <section className="section">
                     <h2>🔧 HTTP 头规则</h2>
                     <HttpRulesManager
-                        rules={config.httpRules || []}
-                        onChange={(rules) => updateConfig('httpRules', rules)}
+                        rules={httpRules}
+                        onChange={setHttpRules}
                     />
                 </section>
 
@@ -521,10 +574,10 @@ function HttpRulesManager({ rules, onChange }) {
                     throw new Error('导入的文件格式不正确');
                 }
 
-                // 验证每条规则的必填字段
+                // 验证每条规则的必填字段（remove 操作无需 headerValue）
                 const isValid = importedRules.every(rule =>
                     rule.name && rule.urlFilter && rule.headerType &&
-                    rule.headerName && rule.headerValue
+                    rule.headerName && (rule.operation === 'remove' || rule.headerValue)
                 );
 
                 if (!isValid) {
@@ -537,6 +590,7 @@ function HttpRulesManager({ rules, onChange }) {
                     // 为每条规则生成新的 ID
                     const rulesWithNewIds = importedRules.map((rule, index) => ({
                         ...rule,
+                        operation: rule.operation || 'set',
                         id: `imported-${Date.now()}-${index}`
                     }));
                     onChange(rulesWithNewIds);
@@ -576,7 +630,7 @@ function HttpRulesManager({ rules, onChange }) {
 
                 const isValid = importedRules.every(rule =>
                     rule.name && rule.urlFilter && rule.headerType &&
-                    rule.headerName && rule.headerValue
+                    rule.headerName && (rule.operation === 'remove' || rule.headerValue)
                 );
 
                 if (!isValid) {
@@ -587,6 +641,7 @@ function HttpRulesManager({ rules, onChange }) {
                 if (confirm(confirmMsg)) {
                     const rulesWithNewIds = importedRules.map((rule, index) => ({
                         ...rule,
+                        operation: rule.operation || 'set',
                         id: `imported-${Date.now()}-${index}`
                     }));
                     onChange([...rules, ...rulesWithNewIds]);
@@ -626,7 +681,10 @@ function HttpRulesManager({ rules, onChange }) {
                                     <span className={`header-type ${rule.headerType}`}>
                                         {rule.headerType === 'request' ? '请求头' : '响应头'}
                                     </span>
-                                    <code>{rule.headerName}: {rule.headerValue}</code>
+                                    {rule.operation === 'remove' &&
+                                        <span className="header-type remove">删除</span>
+                                    }
+                                    <code>{rule.operation === 'remove' ? rule.headerName : `${rule.headerName}: ${rule.headerValue}`}</code>
                                 </p>
                             </div>
                             <div className="rule-actions">
@@ -688,6 +746,9 @@ function HttpRulesManager({ rules, onChange }) {
                     />
                 </label>
             </div>
+            <p className="hint" style={{ marginTop: '8px' }}>
+                💡 规则添加/修改/启停/导入后会<b>自动保存</b>并立即生效，无需点击页面底部的“保存设置”（该按钮用于其他配置项）
+            </p>
 
             {/* 添加/编辑表单 */}
             {(showAddForm || editingRule) && (
@@ -710,6 +771,7 @@ function RuleForm({ rule, onSave, onCancel }) {
         name: '',
         urlFilter: '',
         headerType: 'request',
+        operation: 'set',
         headerName: '',
         headerValue: '',
         enabled: true
@@ -717,7 +779,8 @@ function RuleForm({ rule, onSave, onCancel }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!formData.name || !formData.urlFilter || !formData.headerName || !formData.headerValue) {
+        const needValue = formData.operation !== 'remove';
+        if (!formData.name || !formData.urlFilter || !formData.headerName || (needValue && !formData.headerValue)) {
             alert('请填写所有必填项');
             return;
         }
@@ -757,15 +820,19 @@ function RuleForm({ rule, onSave, onCancel }) {
                             onChange={(e) => setFormData({ ...formData, headerType: e.target.value })}
                         >
                             <option value="request">请求头（Request Header）</option>
-                            <option value="response">响应头（Response Header - 仅 CORS）</option>
+                            <option value="response">响应头（Response Header）</option>
                         </select>
-                        {formData.headerType === 'response' && (
-                            <p className="hint" style={{ color: '#ff4d4f', marginTop: '5px' }}>
-                                ⚠️ Chrome 只允许修改 CORS 相关响应头：<br />
-                                Access-Control-Allow-Origin, Access-Control-Allow-Credentials,<br />
-                                Access-Control-Allow-Headers, Access-Control-Allow-Methods
-                            </p>
-                        )}
+                    </div>
+
+                    <div className="form-item">
+                        <label>操作方式 *</label>
+                        <select
+                            value={formData.operation || 'set'}
+                            onChange={(e) => setFormData({ ...formData, operation: e.target.value })}
+                        >
+                            <option value="set">设置（覆盖 Header 值）</option>
+                            <option value="remove">删除（移除该 Header）</option>
+                        </select>
                     </div>
 
                     <div className="form-item">
@@ -779,13 +846,17 @@ function RuleForm({ rule, onSave, onCancel }) {
                     </div>
 
                     <div className="form-item">
-                        <label>Header 值 *</label>
+                        <label>Header 值 {formData.operation === 'remove' ? '' : '*'}</label>
                         <input
                             type="text"
                             value={formData.headerValue}
                             onChange={(e) => setFormData({ ...formData, headerValue: e.target.value })}
                             placeholder="例如：https://example.com/ 或 *"
+                            disabled={formData.operation === 'remove'}
                         />
+                        {formData.operation === 'remove' && (
+                            <p className="hint">删除模式下无需填写值</p>
+                        )}
                     </div>
 
                     <div className="form-actions">
@@ -796,6 +867,7 @@ function RuleForm({ rule, onSave, onCancel }) {
                             取消
                         </button>
                     </div>
+                    <p className="hint" style={{ marginTop: '8px' }}>💡 点击“{rule ? '更新' : '添加'}”后规则将自动保存并生效</p>
                 </form>
             </div>
         </div>
