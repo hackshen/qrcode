@@ -290,6 +290,7 @@ function injectSourceMap(source, params, rule) {
 function fallbackToContinueRequest(source, params, sourceMapUrl) {
     addLog('warning', `⚠️ 使用备用方案：continueRequest`);
     
+    const url = params.request?.url || '';
     const headers = params.responseHeaders || [];
     
     // 检查是否已有 SourceMap 头

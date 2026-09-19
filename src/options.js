@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import './options.css';
 
@@ -218,7 +218,6 @@ function OptionsApp() {
             }
         }, 300);
         return () => clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [httpRules, config]);
 
     // 恢复默认
@@ -1554,7 +1553,7 @@ function ProxyManager({ proxyConfig, onChange }) {
 }
 
 // 代理配置表单组件
-function ProxyProfileForm({ profile, profiles, onSave, onCancel }) {
+function ProxyProfileForm({ profile, onSave, onCancel }) {
     const [formData, setFormData] = useState(profile || {
         name: '',
         scheme: 'http',

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QRCodeSVG } from 'qrcode.react';
-import { motion } from 'framer-motion';
 import axios from 'axios';
 import './sidepanel.css';
 import CONFIG from './config';
@@ -220,7 +219,7 @@ function SidePanelApp() {
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
                 showStatus(`✅ ${label}已复制到剪贴板`, 'success', scope);
-            } catch (err) {
+            } catch {
                 showStatus(`❌ 复制失败`, 'error', scope);
             }
         }
@@ -575,7 +574,7 @@ function SidePanelApp() {
         fetchMessage(); // 加载每日一句
 
         // 监听标签页更新事件
-        const handleTabUpdate = (tabId, changeInfo, tab) => {
+        const handleTabUpdate = (tabId, changeInfo, _tab) => {
             // 当标签页加载完成时更新信息
             if (changeInfo.status === 'complete') {
                 // 检查是否是当前活动标签页
