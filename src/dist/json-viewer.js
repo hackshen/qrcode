@@ -14,6 +14,24 @@
 
     console.log('[JSON Viewer] ✅ 已注入:', window.location.href);
 
+    // ============ 防闪屏：document_start 即隐藏 JSON 页面 ============
+    // 大 JSON 是流式解析的，浏览器会在 DOMContentLoaded 前就把原文 <pre> 增量绘制上屏，
+    // 而高亮渲染要等 DOM 就绪 + 配置读取 + CodeMirror 懒加载，期间原文会闪现。
+    // document_start 时 Chrome 已确定 MIME：contentType 为 JSON 即可断定本页要渲染，
+    // 先藏 documentElement（早于任何绘制，物理上不可能闪），渲染完成/失败/超时再恢复。
+    // text/plain / text/html 的 JSON 此刻无法可靠判定，不敢盲藏（大 txt 会从流式变全量等待），仍走旧时序。
+    var pageHiddenForRender = false;
+    function revealPage() {
+        if (!pageHiddenForRender) return;
+        pageHiddenForRender = false;
+        document.documentElement.style.visibility = '';
+    }
+    if (/^application\/(?:[a-z0-9.]+\+)?json$/i.test(document.contentType || '')) {
+        pageHiddenForRender = true;
+        document.documentElement.style.visibility = 'hidden';
+        setTimeout(revealPage, 3000); // 兜底：任何环节出错也不至于永久白屏
+    }
+
     // ============ 内置选项（按共识：硬编码全开，仅保留总开关） ============
     var INTERNAL_OPTIONS = {
         theme: 'coy',
@@ -153,8 +171,9 @@
         if (pre !== null && pre !== undefined &&
             (isJSON(pre.textContent) || isJSONP(pre.textContent))) {
             successCallback(pre);
-        } else if (bodyModified) {
-            restoreNonJSONBody();
+        } else {
+            if (bodyModified) restoreNonJSONBody();
+            revealPage(); // 非 JSON 页面（或 contentType 为 JSON 但内容不合法），恢复显示
         }
     }
 
@@ -937,6 +956,7 @@
             .then(function (value) {
                 if (!ignoreLimit && isOversized(pre)) {
                     pre.hidden = false;
+                    revealPage();
                     return;
                 }
 
@@ -949,11 +969,13 @@
 
                 exposeJson(value.jsonExtracted);
                 renderExtras(pre, INTERNAL_OPTIONS, highlighter);
+                revealPage(); // 高亮渲染完成，恢复页面显示
             })
             .catch(function (e) {
                 pre.hidden = false;
                 console.error('[JSON Viewer] error: ' + e.message, e);
                 renderErrorBanner(e.message);
+                revealPage();
             });
     }
 
@@ -976,6 +998,7 @@
         if (isOversized(pre)) {
             // 超大 JSON：保持原文，弹提示可手动强高亮
             renderOversizeAlert(pre);
+            revealPage();
             return;
         }
 
@@ -984,6 +1007,7 @@
             .then(function () { highlightContent(pre, false); })
             .catch(function (err) {
                 pre.hidden = false;
+                revealPage();
                 console.error('[JSON Viewer] 加载 CodeMirror 失败，显示原始 JSON:', err);
             });
     }
@@ -1012,6 +1036,7 @@
         // 总开关：默认开启，仅显式 false 时禁用（与 autoLogin 开关同语义）
         if (config && config.features && config.features.jsonViewer === false) {
             console.log('[JSON Viewer] 功能已关闭');
+            revealPage();
             return;
         }
         checkIfJson(start);
