@@ -91,7 +91,9 @@ npm run test:e2e   # 仅 E2E：无头 Chrome 真实加载扩展，覆盖渲染/�
 |---|---|---|---|
 | React 页面 | `src/{popup,options,sidepanel}.js` + 各自模块目录 | rsbuild 打包 | ✅ |
 | 打包型扩展脚本 | `src/extension/{background,http-rules-manager}.js` | rsbuild 打包为单文件（产物平铺 build/ 根） | ✅ |
-| 拷贝型扩展脚本 | `src/extension/` 其余 | 原样 copy 到 build/ | ❌（无模块系统） |
+| 拷贝型扩展脚本 | `src/extension/` 其余 | 原样 copy 到 build/ | ❌（经典脚本写法，无 import/export） |
+
+> 注：拷贝型不足技术限制——任何脚本需要引用共享模块时，在 `rsbuild.config.js` 注册为 entry 即可转为打包型（background 与 http-rules-manager 就是这么做的）。打包为单文件也绕开了 MV3 content script 不支持声明式 ESM 的限制。
 
 **共享常量与逻辑**（存储 key、默认配置、迁移逻辑）统一放在 `src/shared/`，由前两种形态 import——避免复制粘贴造成双份维护。
 
