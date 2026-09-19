@@ -1,12 +1,13 @@
 // ============ HTTP 头规则动态管理 ============
+// 构建说明：本文件经 rsbuild 打包为单文件产物（同时作为 content script 与 background 引入），
+// key/迁移逻辑从 src/shared/http-rules.js 引入（与 options.js 单一来源）
+
+import { HTTP_RULES_KEY, migrateHttpRules } from '../shared/http-rules.js';
 
 console.log('[HTTP Rules] 🟢 管理器已启动');
 
 // 规则 ID 起始值（避免与 SourceMap 规则冲突）
 const RULE_ID_START = 10000;
-
-// 规则独立存储的 key（与 extensionConfig 分离，避免 8KB 单项配额限制）
-const HTTP_RULES_KEY = 'extensionHttpRules';
 
 // 将配置规则转换为 declarativeNetRequest 规则
 function convertToDeclarativeRule(configRule, index) {
@@ -53,26 +54,8 @@ function convertToDeclarativeRule(configRule, index) {
 // 读取规则配置（含一次性迁移：旧结构 extensionConfig.httpRules → 独立 key）
 async function loadHttpRulesConfig() {
     const result = await chrome.storage.sync.get(['extensionConfig', HTTP_RULES_KEY]);
-
-    // 新结构已存在，直接使用
-    if (Array.isArray(result[HTTP_RULES_KEY])) {
-        return result[HTTP_RULES_KEY];
-    }
-
-    // 旧结构存在 httpRules 字段 → 迁移到独立 key，并从 extensionConfig 中移除
-    const legacyRules = result.extensionConfig?.httpRules;
-    if (Array.isArray(legacyRules)) {
-        try {
-            const { httpRules, ...configWithoutRules } = result.extensionConfig;
-            await chrome.storage.sync.set({ [HTTP_RULES_KEY]: httpRules, extensionConfig: configWithoutRules });
-            console.log('[HTTP Rules] 🔄 已迁移旧规则到独立存储 key:', HTTP_RULES_KEY);
-        } catch (error) {
-            console.error('[HTTP Rules] ❌ 规则迁移失败:', error);
-        }
-        return legacyRules;
-    }
-
-    return [];
+    // 无任何存储时返回 []（示例规则仅存在干 options 页，不自动生效）
+    return (await migrateHttpRules(result)) ?? [];
 }
 
 // 应用规则

@@ -2,7 +2,7 @@
 console.log('[Content Script] ✅ 已注入:', window.location.href);
 
 // 配置对象（从 chrome.storage 加载，已自动初始化）
-// 注意：完整配置定义在 src/extension/default-config.js
+// 注意：完整配置定义在 src/shared/default-config.js
 let CONFIG = null;
 
 // Fallback 配置（仅在 storage 读取失败时使用）

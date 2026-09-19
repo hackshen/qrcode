@@ -12,9 +12,9 @@
   },
   "scripts": {
     "dev": "rsbuild dev",
-    "build": "rsbuild build",
+    "build": "rsbuild build && node scripts/clean-build.mjs",
     "test": "node tests/test-json-viewer.mjs",
-    "lint": "eslint src tests"
+    "lint": "eslint src tests scripts"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

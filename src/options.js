@@ -1,88 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
+import { DEFAULT_EXTENSION_CONFIG as DEFAULT_CONFIG } from './shared/default-config.js';
+import { HTTP_RULES_KEY, DEFAULT_HTTP_RULES, migrateHttpRules } from './shared/http-rules.js';
 import './options.css';
-
-// ============ 默认配置 ============
-const DEFAULT_CONFIG = {
-    // 功能开关
-    features: {
-        doubleCopyClick: false,
-        passwordReveal: true,
-        autoLogin: true,
-        jsonViewer: true,
-        // globalErrorMonitor: false,
-        // sourcemapMonitor: false,
-    },
-    // Auto-Login 悬浮球开关
-    autoLogin: {
-        showBall: true,
-    },
-    // API 配置
-    api: {
-        message: 'https://api.hackshen.com/message',
-    },
-    // CDN 配置
-    cdn: {
-        jquery: 'https://libs.baidu.com/jquery/2.0.0/jquery.min.js',
-    },
-    // SourceMap 域名
-    // sourcemapDomains: [],
-    // 注：HTTP 头规则不再放在 extensionConfig 里（storage.sync 单项 8KB 配额限制），
-    // 独立存储于 extensionHttpRules key，默认值见下方 DEFAULT_HTTP_RULES
-    // OCR 验证码识别
-    ocr: {
-        apiUrl: 'https://api.hackshen.com/ocr',
-        autoRecognize: true  // 自动识别页面验证码
-    },
-    // 代理配置
-    proxy: {
-        enabled: false,
-        mode: 'direct', // 'direct' | 'system' | 'auto_switch' | 'fixed'
-        currentProfile: null, // 当前使用的代理配置 ID
-        profiles: [], // 代理配置列表
-        rules: [] // 自动切换规则
-    },
-    // SourceMap 注入配置
-    sourcemap: {
-        enabled: false, // 是否启用 SourceMap 注入
-        rules: [] // SourceMap 注入规则列表
-    }
-};
-
-// HTTP 头规则独立存储 key 与默认规则（与 http-rules-manager.js 保持一致）
-const HTTP_RULES_KEY = 'extensionHttpRules';
-const DEFAULT_HTTP_RULES = [
-    {
-        id: 'lotsmall',
-        enabled: true,
-        name: 'Lotsmall 防盗链',
-        urlFilter: '*://statics.lotsmall.cn/*',
-        headerType: 'request',
-        operation: 'set',
-        headerName: 'Referer',
-        headerValue: 'https://wap.lotsmall.cn/'
-    },
-    {
-        id: 'juejin',
-        enabled: true,
-        name: '掘金图片防盗链',
-        urlFilter: '*://p3-juejin.byteimg.com/*',
-        headerType: 'request',
-        operation: 'set',
-        headerName: 'Referer',
-        headerValue: 'https://juejin.cn/'
-    },
-    {
-        id: 'huangshan',
-        enabled: true,
-        name: '黄山 CORS',
-        urlFilter: '*://statics.huangshan.com.cn/*',
-        headerType: 'response',
-        operation: 'set',
-        headerName: 'Access-Control-Allow-Origin',
-        headerValue: '*'
-    }
-];
 
 // ============ React 组件 ============
 
@@ -119,18 +39,9 @@ function OptionsApp() {
         try {
             const result = await chrome.storage.sync.get(['extensionConfig', HTTP_RULES_KEY]);
 
-            // HTTP 头规则：独立 key 优先；旧结构（extensionConfig.httpRules）一次性迁移
-            let rules;
-            if (Array.isArray(result[HTTP_RULES_KEY])) {
-                rules = result[HTTP_RULES_KEY];
-            } else if (result.extensionConfig && Array.isArray(result.extensionConfig.httpRules)) {
-                rules = result.extensionConfig.httpRules;
-                const { httpRules: legacyRules, ...configWithoutRules } = result.extensionConfig;
-                await chrome.storage.sync.set({ [HTTP_RULES_KEY]: legacyRules, extensionConfig: configWithoutRules });
-                console.log('🔄 HTTP 头规则已迁移到独立存储:', HTTP_RULES_KEY);
-            } else {
-                rules = DEFAULT_HTTP_RULES;
-            }
+            // HTTP 头规则：独立 key 优先；旧结构（extensionConfig.httpRules）一次性迁移；
+            // 无任何存储时回退到示例规则（仅存在干 UI，保存后才生效）
+            const rules = (await migrateHttpRules(result)) ?? DEFAULT_HTTP_RULES;
             setHttpRules(rules);
 
             // 合并默认配置，确保所有字段都存在

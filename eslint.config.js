@@ -81,6 +81,16 @@ export default [
         },
     },
 
+    // 共享模块与 ESM 化的扩展脚本（经 rsbuild 打包，可 import；须在上方经典脚本块之后覆盖 sourceType）
+    {
+        files: ['src/shared/**/*.js', 'src/extension/background.js', 'src/extension/http-rules-manager.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'module',
+            globals: { ...globals.browser, chrome: 'readonly' },
+        },
+    },
+
     // json-viewer：CodeMirror 由 background 运行时注入，非模块依赖
     {
         files: ['src/extension/json-viewer.js'],

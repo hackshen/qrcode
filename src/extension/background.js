@@ -1,7 +1,8 @@
 // Manifest V3 Background Service Worker
+// 构建说明：经 rsbuild 打包为单文件产物，共享模块直接 import
 
-// 导入默认配置
-importScripts('default-config.js');
+import { DEFAULT_EXTENSION_CONFIG } from '../shared/default-config.js';
+import './http-rules-manager.js';
 
 // 配置对象
 const CONFIG = {
@@ -225,7 +226,7 @@ function handleSetSessionId(tab) {
 }
 
 // ============ HTTP 头规则动态管理 ============
-importScripts('http-rules-manager.js');
+//（http-rules-manager 已在文件顶部 import，含自启动与 storage 监听）
 
 // ============ SourceMap 自动注入 ============
 // importScripts('sourcemap-injector.js');

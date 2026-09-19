@@ -32,6 +32,9 @@ export default defineConfig({
             popup: './src/popup.js',
             options: './src/options.js',
             sidepanel: './src/sidepanel.js',
+            // 扩展脚本 entry：需要 import 共享模块（src/shared），打包为单文件产物供 manifest 引用
+            background: './src/extension/background.js',
+            'http-rules-manager': './src/extension/http-rules-manager.js',
         },
     },
     html: {
@@ -50,15 +53,23 @@ export default defineConfig({
     },
     output: {
         copy: [
-            // 复制扩展所需的静态文件
+            // 复制扩展所需的静态文件（entry 化的脚本除外，它们经打包产出）
             {
                 from: './src/extension',
+                globOptions: {
+                    ignore: ['**/background.js', '**/http-rules-manager.js'],
+                },
             },
         ],
         distPath: {
             root: 'build',
+            js: '',
         },
+        // entry 产物平铺在 build 根目录：manifest 引用的脚本路径（background.js 等）不能带 hash/子目录
         filenameHash: false,
+        filename: {
+            js: '[name].js',
+        },
         cleanDistPath: true,
         sourceMap: {
             js: 'hidden-source-map',  // 生成 source map 但不在代码中引用
