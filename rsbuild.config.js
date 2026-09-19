@@ -71,10 +71,8 @@ export default defineConfig({
             js: '[name].js',
         },
         cleanDistPath: true,
-        sourceMap: {
-            js: 'hidden-source-map',  // 生成 source map 但不在代码中引用
-            css: 'hidden-source-map', // 生成 source map 但不在代码中引用
-        },
+        // 不生成 source map：产物中不被引用、无实际排查价值（排查问题对照 src/ 源码），省 879KB 产物体积
+        sourceMap: false,
     },
     dev: {
         writeToDisk: (file) => !file.includes('.hot-update.'),
