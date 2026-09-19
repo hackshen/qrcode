@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 import './sidepanel.css';
+import { QuickLink } from './sidepanel/quick-links.js';
+import { useAccounts } from './sidepanel/use-accounts.js';
 import CONFIG from './config';
 
 // 配置 axios 实例
@@ -12,120 +14,17 @@ apiClient.interceptors.response.use(
     (error) => Promise.reject(error)
 );
 
-// ============ 工具函数 ============
-// 生成随机颜色
-const generateRandomColor = () => {
-    return '#' + Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0');
-};
-
-// 获取当前活动标签页
-const getCurrentTab = async () => {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    return tabs[0];
-};
-
-// ============ Chrome API 操作函数 ============
-const openDownload = () => {
-    chrome.downloads.showDefaultFolder();
-};
-
-const scriptInject = async () => {
-    try {
-        const tab = await getCurrentTab();
-        chrome.tabs.sendMessage(tab.id, { action: 'inject' }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error('❌ jQuery 注入失败:', chrome.runtime.lastError);
-            } else {
-                console.log('✅ jQuery 注入成功:', response?.msg);
-            }
-        });
-    } catch (error) {
-        console.error('❌ 获取标签页失败:', error);
-    }
-};
-
-const clearDnsCache = async () => {
-    try {
-        const tab = await chrome.tabs.create({ 
-            url: 'chrome://net-internals', 
-            active: false 
-        });
-        
-        setTimeout(async () => {
-            try {
-                await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    files: ['clear.js']
-                });
-                
-                await chrome.tabs.remove(tab.id);
-                
-                const currentTab = await getCurrentTab();
-                chrome.tabs.sendMessage(currentTab.id, { action: 'clear' });
-            } catch (error) {
-                console.error('❌ DNS 缓存清除失败:', error);
-                await chrome.tabs.remove(tab.id);
-            }
-        }, 500);
-    } catch (error) {
-        console.error('❌ 创建标签页失败:', error);
-    }
-};
-
-// 映射配置中的 action 到实际函数
-const actionMap = {
-    clearDnsCache,
-    openDownload,
-    scriptInject,
-};
-
-// ============ QuickLink 组件 ============
-// 使用 React.memo 防止不必要的重新渲染
-const QuickLink = React.memo(({ link, index }) => {
-    const handleClick = (e) => {
-        if (link.action && actionMap[link.action]) {
-            e.preventDefault();
-            actionMap[link.action]();
-        }
-    };
-
-    const style = {
-        background: link.style?.background || generateRandomColor(),
-        ...link.style
-    };
-
-    return (
-        <a
-            key={index}
-            style={style}
-            target="_blank"
-            href={link.link}
-            onClick={handleClick}
-            rel="noopener noreferrer"
-            className="quick-link-item"
-        >
-            {link.name}
-        </a>
-    );
-});
-
 // ============ 主组件 ============
 function SidePanelApp() {
     const [tabInfo, setTabInfo] = useState(null);
     const [sectionStatus, setSectionStatus] = useState({});
     const statusTimersRef = useRef({});
-    const importInputRef = useRef(null);
     const [qrText, setQrText] = useState('');
     const [version, setVersion] = useState('1.0.0');
     const [loading, setLoading] = useState(true);
     const [cookieData, setCookieData] = useState({ sessionId: '', pubCorpCode: '', merchantInfoId: '' });
     const [tyAuthToken, setTyAuthToken] = useState('');
     const [tokenExpireTime, setTokenExpireTime] = useState('');
-    const [accountList, setAccountList] = useState([]);
-    const [showAddForm, setShowAddForm] = useState(false);
-    const [newAccount, setNewAccount] = useState({ account: '', password: '', remark: '' });
-    const [searchQuery, setSearchQuery] = useState('');
-    const searchInputRef = useRef(null);
     
     // 每日一句相关状态
     const [message, setMessage] = useState('');
@@ -152,18 +51,6 @@ function SidePanelApp() {
                 {s.message}
             </span>
         );
-    };
-
-    // 切换添加账号表单并清理状态
-    const handleToggleAddForm = () => {
-        setShowAddForm((prev) => {
-            const next = !prev;
-            // 关闭时重置表单与提示
-            if (!next) {
-                setNewAccount({ account: '', password: '', remark: '' });
-            }
-            return next;
-        });
     };
 
     // 显示状态消息
@@ -224,6 +111,17 @@ function SidePanelApp() {
             }
         }
     };
+
+    // ============ 账号列表域（状态+逻辑拆至 use-accounts.js） ============
+    const {
+        accountList, loadAccountList, filteredAccountList,
+        showAddForm, newAccount, searchQuery, searchInputRef, importInputRef,
+        setSearchQuery, setNewAccount,
+        handleToggleAddForm, handleManualAddAccount,
+        handleImportClick, handleImportFile, handleExportAccounts,
+        handleDeleteAccount, handleClearSearch,
+    } = useAccounts({ showStatus });
+
 
     // 解析 JWT token 获取有效期
     const parseJWTExpireTime = (token) => {
@@ -377,184 +275,6 @@ function SidePanelApp() {
             setLoading(false);
         }
     }, [loadCookies, loadLocalStorage]);
-
-    // 加载账号列表
-    const loadAccountList = useCallback(async () => {
-        try {
-            const result = await chrome.storage.local.get('accountList');
-            const accounts = result.accountList || [];
-            setAccountList(accounts);
-        } catch (error) {
-            console.error('❌ 加载账号列表失败:', error);
-            setAccountList([]);
-        }
-    }, []);
-
-    // 添加账号到列表
-    const addAccountToList = async (account, password, remark) => {
-        if (!account.trim()) {
-            showStatus('❌ 账号不能为空', 'error', 'account');
-            return;
-        }
-
-        try {
-            const result = await chrome.storage.local.get('accountList');
-            const accounts = result.accountList || [];
-            
-            // 检查是否已存在
-            if (accounts.some(acc => acc.account === account.trim())) {
-                showStatus('⚠️ 该账号已存在', 'error', 'account');
-                return;
-            }
-
-            const accountData = {
-                id: Date.now(),
-                account: account.trim(),
-                password: password.trim() || '',
-                remark: remark.trim() || ''
-            };
-
-            accounts.push(accountData);
-            await chrome.storage.local.set({ accountList: accounts });
-            setAccountList(accounts);
-            showStatus('✅ 账号已添加', 'success', 'account');
-            
-            // 重置表单
-            setNewAccount({ account: '', password: '', remark: '' });
-            setShowAddForm(false);
-        } catch (error) {
-            console.error('❌ 添加账号失败:', error);
-            showStatus('❌ 添加账号失败', 'error', 'account');
-        }
-    };
-
-    // 手动添加账号
-    const handleManualAddAccount = async () => {
-        await addAccountToList(newAccount.account, newAccount.password, newAccount.remark);
-    };
-
-    // 触发文件选择导入账号
-    const handleImportClick = () => {
-        if (importInputRef.current) {
-            importInputRef.current.click();
-        }
-    };
-
-    // 处理导入账号文件
-    const handleImportFile = async (event) => {
-        const file = event.target.files && event.target.files[0];
-        if (!file) return;
-
-        try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-
-            if (!Array.isArray(data)) {
-                throw new Error('格式错误');
-            }
-
-            const normalized = data
-                .map((item, idx) => {
-                    const account = (item.account ?? item.username ?? '').toString().trim();
-                    const password = (item.password ?? '').toString().trim();
-                    const remark = (item.remark ?? item.note ?? '').toString().trim();
-                    return { account, password, remark, idx };
-                })
-                .filter((item) => item.account);
-
-            if (normalized.length === 0) {
-                throw new Error('无有效账号');
-            }
-
-            const result = await chrome.storage.local.get('accountList');
-            const existing = result.accountList || [];
-            const existingSet = new Set(existing.map((i) => i.account));
-
-            let added = 0;
-            const merged = [...existing];
-            normalized.forEach((item, i) => {
-                if (existingSet.has(item.account)) return;
-                merged.push({
-                    id: Date.now() + i,
-                    account: item.account,
-                    password: item.password,
-                    remark: item.remark,
-                });
-                existingSet.add(item.account);
-                added += 1;
-            });
-
-            if (added === 0) {
-                showStatus('⚠️ 导入文件中没有新的账号', 'error', 'account');
-                return;
-            }
-
-            await chrome.storage.local.set({ accountList: merged });
-            setAccountList(merged);
-            showStatus(`✅ 导入成功，新增 ${added} 个账号`, 'success', 'account');
-        } catch (error) {
-            console.error('❌ 导入账号失败:', error);
-            showStatus('❌ 导入失败，请检查文件格式（JSON 数组）', 'error', 'account');
-        } finally {
-            // 清理 input 以便重复选择同一文件
-            event.target.value = '';
-        }
-    };
-
-    // 导出账号为 JSON
-    const handleExportAccounts = () => {
-        if (!accountList || accountList.length === 0) {
-            showStatus('⚠️ 当前没有可导出的账号', 'error', 'account');
-            return;
-        }
-
-        const exportData = accountList.map(({ account, password, remark }) => ({
-            account,
-            password,
-            remark,
-        }));
-
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'accounts.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        showStatus('✅ 已导出账号列表', 'success', 'account');
-    };
-
-    // 删除账号
-    const handleDeleteAccount = async (id) => {
-        try {
-            const accounts = accountList.filter(acc => acc.id !== id);
-            await chrome.storage.local.set({ accountList: accounts });
-            setAccountList(accounts);
-            showStatus('✅ 账号已删除', 'success', 'account');
-        } catch (error) {
-            console.error('❌ 删除账号失败:', error);
-            showStatus('❌ 删除账号失败', 'error', 'account');
-        }
-    };
-
-    // 账号搜索
-    const filteredAccountList = useMemo(() => {
-        const keyword = searchQuery.trim().toLowerCase();
-        if (!keyword) return accountList;
-        return accountList.filter(({ account, password, remark }) => {
-            const values = [account, password, remark]
-                .filter(Boolean)
-                .map((v) => v.toString().toLowerCase());
-            return values.some((v) => v.includes(keyword));
-        });
-    }, [accountList, searchQuery]);
-
-    const handleClearSearch = () => {
-        setSearchQuery('');
-        if (searchInputRef.current) {
-            searchInputRef.current.focus();
-        }
-    };
 
     // 加载版本信息
     const loadVersion = () => {

@@ -14,7 +14,7 @@ export default [
 
     // React 页面（src/*.js，经 rsbuild 打包，ESM）
     {
-        files: ['src/*.js', 'src/options/**/*.js'],
+        files: ['src/*.js', 'src/options/**/*.js', 'src/sidepanel/**/*.js'],
         ...react.configs.flat.recommended,
         plugins: {
             ...react.configs.flat.recommended.plugins,
