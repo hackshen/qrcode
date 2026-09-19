@@ -5,7 +5,7 @@
 //
 // CodeMirror 5 为懒加载：检测到 JSON 后经 background 的 chrome.scripting
 // 注入（ISOLATED world 与本 content script 同世界，页面 CSP 无关），
-// vendor 文件见 src/dist/vendor/codemirror/，样式见 src/dist/json-viewer.css
+// vendor 文件见 src/extension/vendor/codemirror/，样式见 src/extension/json-viewer.css
 //
 // 开关：options → features.jsonViewer（默认开启，关闭后需刷新页面）
 

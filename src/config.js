@@ -2,7 +2,7 @@
  * 扩展静态配置文件
  * 仅包含不需要用户修改的静态配置
  * 
- * 注意：用户可配置项（如 API 地址、功能开关等）已移至 src/dist/default-config.js
+ * 注意：用户可配置项（如 API 地址、功能开关等）已移至 src/extension/default-config.js
  */
 
 const CONFIG = {
@@ -63,7 +63,7 @@ const CONFIG = {
         sessionid: 'sessionid',
     },
 
-    // ============ 以下配置已移至 src/dist/default-config.js ============
+    // ============ 以下配置已移至 src/extension/default-config.js ============
     // api: { ... }          → 移至 default-config.js
     // cdn: { ... }          → 移至 default-config.js
     // refererRules: [ ... ] → 已废弃，使用 httpRules（在 default-config.js 中）

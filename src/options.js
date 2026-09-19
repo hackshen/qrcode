@@ -876,7 +876,7 @@ function RuleForm({ rule, onSave, onCancel }) {
 
 // ============ Auto-Login 工具与组件 ============
 
-// eTLD+1 提取（与 src/dist/auto-login.js 同实现；跨环境共享代价高于复制，改动需同步）
+// eTLD+1 提取（与 src/extension/auto-login.js 同实现；跨环境共享代价高于复制，改动需同步）
 function getETldPlus1(host) {
     const EFFECTIVE_SUFFIXES = new Set([
         'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'me.uk',

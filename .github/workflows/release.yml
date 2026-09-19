@@ -34,9 +34,9 @@ jobs:
 
       - name: 🗜️ Create ZIP archive
         run: |
-          cd src/dist
-          zip -r ../../extension-${{ steps.get_version.outputs.VERSION }}.zip .
-          cd ../..
+          cd build
+          zip -r ../extension-${{ steps.get_version.outputs.VERSION }}.zip .
+          cd ..
 
       - name: 📋 Generate changelog
         id: changelog

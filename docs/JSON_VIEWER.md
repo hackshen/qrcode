@@ -85,18 +85,18 @@ contentExtractor（大数 wrapNumbers 保精度）→ prependHeader → CodeMirr
 
 | 文件 | 说明 |
 |---|---|
-| `src/dist/json-viewer.js` | 核心：检测/提取/格式化/渲染/工具条/启动流程（经典脚本 IIFE，无构建依赖） |
-| `src/dist/json-viewer.css` | 默认主题规则（现仅兜底）+ viewer/editor 自定义样式 + 字体 |
-| `src/dist/vendor/codemirror/` | CM 5.65.21：核心、javascript 模式、fold/dialog/search/scroll addon、theme/coy.css，共 15 个文件 |
+| `src/extension/json-viewer.js` | 核心：检测/提取/格式化/渲染/工具条/启动流程（经典脚本 IIFE，无构建依赖） |
+| `src/extension/json-viewer.css` | 默认主题规则（现仅兜底）+ viewer/editor 自定义样式 + 字体 |
+| `src/extension/vendor/codemirror/` | CM 5.65.21：核心、javascript 模式、fold/dialog/search/scroll addon、theme/coy.css，共 15 个文件 |
 | `test-json-viewer.mjs` | 冒烟测试（stub DOM/chrome/CM，`node test-json-viewer.mjs`） |
 
 ### 修改
 
 | 文件 | 改动 |
 |---|---|
-| `src/dist/manifest.json` | `content_scripts.js` 追加 `json-viewer.js`（document_start，排在 inject.js、auto-login.js 之后）；matches 增 `file://*/*` |
-| `src/dist/background.js` | onMessage 新增 `jsonViewerLoadAssets`：executeScript（10 个 JS 按依赖序）+ insertCSS（7 个 CSS，含双主题） |
-| `src/dist/default-config.js` | `features.jsonViewer: true` |
+| `src/extension/manifest.json` | `content_scripts.js` 追加 `json-viewer.js`（document_start，排在 inject.js、auto-login.js 之后）；matches 增 `file://*/*` |
+| `src/extension/background.js` | onMessage 新增 `jsonViewerLoadAssets`：executeScript（10 个 JS 按依赖序）+ insertCSS（7 个 CSS，含双主题） |
+| `src/extension/default-config.js` | `features.jsonViewer: true` |
 | `src/options.js` | DEFAULT_CONFIG 同步 + 「JSON 高亮」OptionItem 开关（`!== false` 语义，与 autoLogin 一致） |
 | `README.md` | 功能清单与更新记录 |
 
@@ -104,8 +104,8 @@ contentExtractor（大数 wrapNumbers 保精度）→ prependHeader → CodeMirr
 
 | 想改什么 | 去哪改 |
 |---|---|
-| 字体/行距/工具条样式 | `src/dist/json-viewer.css` 末段 |
-| 超大上限、折叠、tab 宽度等行为 | `src/dist/json-viewer.js` 顶部 `INTERNAL_OPTIONS` |
+| 字体/行距/工具条样式 | `src/extension/json-viewer.css` 末段 |
+| 超大上限、折叠、tab 宽度等行为 | `src/extension/json-viewer.js` 顶部 `INTERNAL_OPTIONS` |
 | 换主题 | 从 json-viewer 仓库 `extension/themes/` copy 对应 css 到 `vendor/codemirror/theme/`，改 `INTERNAL_OPTIONS.theme`，background.js insertCSS 列表加一行 |
 | 开关默认值 | `default-config.js` 与 `options.js` 两处 `DEFAULT_CONFIG.features.jsonViewer` |
 

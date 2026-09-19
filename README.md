@@ -99,7 +99,7 @@ npm run build
 
 所有配置集中管理：
 - `src/config.js` - 静态配置（作者信息、快捷链接等）
-- `src/dist/default-config.js` - 默认扩展配置（功能开关、API 地址等）
+- `src/extension/default-config.js` - 默认扩展配置（功能开关、API 地址等）
 - `src/options.js` - 配置管理界面
 
 配置项包括：

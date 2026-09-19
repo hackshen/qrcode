@@ -52,7 +52,7 @@ export default defineConfig({
         copy: [
             // 复制扩展所需的静态文件
             {
-                from: './src/dist',
+                from: './src/extension',
             },
         ],
         distPath: {
