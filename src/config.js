@@ -69,16 +69,5 @@ const CONFIG = {
     // refererRules: [ ... ] → 已废弃，使用 httpRules（在 default-config.js 中）
 };
 
-// 兼容不同的模块系统
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CONFIG;
-}
-
-// 对于浏览器环境
-if (typeof window !== 'undefined') {
-    window.HSHEN_CONFIG = CONFIG;
-}
-
-// ES6 导出
 export default CONFIG;
 

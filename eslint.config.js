@@ -43,14 +43,6 @@ export default [
         },
     },
 
-    // src/config.js：含 UMD 导出分支（module 变量）
-    {
-        files: ['src/config.js'],
-        languageOptions: {
-            globals: { module: 'readonly' },
-        },
-    },
-
     // 扩展经典脚本（src/extension/**，IIFE，无构建依赖，含 chrome.* API）
     {
         files: ['src/extension/**/*.js'],

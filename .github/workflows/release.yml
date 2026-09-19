@@ -25,6 +25,12 @@ jobs:
       - name: 📦 Install dependencies
         run: npm install
 
+      - name: 🔍 Lint
+        run: npm run lint
+
+      - name: 🧪 Test（单元 + E2E）
+        run: npm test
+
       - name: 🏗️ Build extension
         run: npm run build
 
